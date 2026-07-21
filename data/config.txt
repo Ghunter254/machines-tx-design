@@ -1,0 +1,190 @@
+###########################################################
+# TRANSFORMER DESIGN CONFIGURATION
+# 630 kVA 11 kV / 415 V ONAN Distribution Transformer
+###########################################################
+
+###########################################################
+# DESIGN INPUTS - General Specifications
+###########################################################
+
+APPARENT_POWER=630                 # Symbol: KVA (kVA - rated apparent power)
+HV_VOLTAGE=11000                   # Symbol: HV (V - high voltage line rating)
+LV_VOLTAGE=415                     # Symbol: LV (V - low voltage line rating)
+PHASES=3                           # Symbol: Ph (number of phases)
+FREQUENCY=50                       # Symbol: f (Hz - operating frequency)
+TARGET_TEMP_RISE=50                # Symbol: TRP (°C - target permissible temperature rise)
+
+COPPER_DENSITY=8960                # Symbol: density_cu (kg/m³ - conductor density)
+STEEL_DENSITY=7850                 # Symbol: density_fe (kg/m³ - core steel lamination density)
+OIL_DENSITY=860                    # Symbol: density_oil (kg/m³ - insulating oil density)
+
+###########################################################
+# MAGNETIC FRAME & CORE GEOMETRY (LENANA) - Part 1
+###########################################################
+
+# Core & Window Factors
+CORE_STEP_FACTOR=0.6               # Symbol: k (3-stepped core area stepping factor)
+EMF_VALUE_FACTOR=0.6               # Symbol: K (volts/turn value factor)
+WINDOW_SPACE_FACTOR=0.314          # Symbol: kw (window utilization space factor)
+IRON_STACKING_FACTOR=0.9           # Symbol: ki (core lamination stacking factor)
+
+# Electrical & Magnetic Baselines
+VOLTS_PER_TURN=8.7                 # Symbol: Et (V/turn - induced electromotive force per turn)
+CORE_FLUX_DENSITY=1.6              # Symbol: Bm (T - maximum flux density in core limb)
+YOKE_FLUX_DENSITY=1.33             # Symbol: By (T - operating flux density in yoke)
+AVERAGE_CURRENT_DENSITY=2.6        # Symbol: cdav (A/mm² - assumed baseline current density)
+
+# Core Limb Dimensions (Merged & Standardized)
+CORE_NET_AREA=0.0245               # Symbol: Ai (m² - net iron cross-sectional area)
+CORE_GROSS_AREA=0.0272             # Symbol: Ac (m² - gross core cross-sectional area)
+CORE_LIMB_DIAMETER=0.202           # Symbol: d (m - diameter of circumscribing circle / limb)
+CORE_LIMB_LENGTH=0.609             # Symbol: L (m - window height / core limb length)
+CORE_CENTER_DISTANCE=0.405         # Symbol: D (m - distance between adjacent core limb centers)
+
+# Window & Yoke Dimensions
+WINDOW_AREA=0.1232                 # Symbol: Aw (m² - total window area)
+YOKE_LENGTH=0.992                  # Symbol: W (m - horizontal length of yoke: 2*D + 0.9*d)
+YOKE_GROSS_AREA=0.0327             # Symbol: Ay (m² - gross cross-sectional area of yoke)
+YOKE_WIDTH=0.182                   # Symbol: by (m - width of yoke lamination)
+YOKE_HEIGHT=0.180                  # Symbol: hy (m - height of yoke lamination)
+
+# Specific Losses & Component Weights
+CORE_LOSS_PER_KG=1.4               # Symbol: WpKgC (W/kg - specific core steel loss @ 1.6 T)
+YOKE_LOSS_PER_KG=1.02              # Symbol: WpKgY (W/kg - specific yoke steel loss @ 1.33 T)
+CORE_WEIGHT=343                    # Symbol: KgC (kg - total weight of active limb steel)
+YOKE_WEIGHT=446                    # Symbol: KgY (kg - total weight of yoke steel)
+
+# Total Iron Losses
+CORE_IRON_LOSS=480.2               # Symbol: PiC (W - total iron loss in core limbs)
+YOKE_IRON_LOSS=446                 # Symbol: PiY (W - total iron loss in yokes)
+TOTAL_IRON_LOSS_KW=0.926           # Symbol: Pi (kW - total core and yoke iron loss)
+
+###########################################################
+# NO-LOAD CURRENT EXCITATION - Part 2
+###########################################################
+
+# Specific Magnetizing Force (Field Strength)
+CORE_AT_PER_METER=200              # Symbol: atC (AT/m - specific excitation AT for limb steel)
+YOKE_AT_PER_METER=110              # Symbol: atY (AT/m - specific excitation AT for yoke steel)
+
+# Total Magnetizing Ampere-Turns
+CORE_TOTAL_AT=365.4                # Symbol: ATC (AT - total ampere-turns required for core limbs)
+YOKE_TOTAL_AT=218.24               # Symbol: ATY (AT - total ampere-turns required for yokes)
+TOTAL_AT_PER_PHASE=194.55          # Symbol: ATpPh (AT/phase - total magnetizing MMF per phase)
+
+# LV Winding Reference (Used for Current Ratios)
+LV_TURNS_REF=28                    # Symbol: T2 (turns - LV winding turns reference)
+LV_PHASE_CURRENT=876.46            # Symbol: I2 (A - rated low voltage phase current)
+
+# No-Load Current Components
+WATTFUL_CURRENT=1.29               # Symbol: Iw (A - active core loss current component)
+MAGNETIZING_CURRENT=5.65           # Symbol: Im (A - reactive magnetizing current component)
+NO_LOAD_CURRENT=5.8                # Symbol: I0 (A - total no-load excitation current)
+NO_LOAD_CURRENT_RATIO=0.6618       # Symbol: I0byI2 (% - I0 expressed as a percentage of rated I2)
+
+###########################################################
+# LV WINDING (AITSA) - Part 3
+###########################################################
+
+LV_AVAILABLE_HEIGHT=487.2          # Symbol: ALW (mm - axial window height allocated for winding)
+LV_TURNS=28                        # Symbol: T (turns - number of LV turns T2)
+LV_TURNS_RADIALLY=7                # Symbol: Tr (turns - radial turns / layers T2r)
+LV_TURNS_AXIALLY=4                 # Symbol: Ta (turns - axial turns per layer T2a)
+LV_PARALLEL_STRANDS=18             # Symbol: stP (strands - number of parallel conductors)
+LV_AXIAL_STRANDS=6                 # Symbol: NstA (strands - axial strand subdivision)
+LV_RADIAL_STRANDS=3                # Symbol: NstR (strands - radial strand subdivision)
+LV_SPACE_PER_TURN=121.8            # Symbol: ALT (mm - axial height allocation per turn)
+LV_STRAND_WIDTH_BARE=20            # Symbol: stW (mm - bare rectangular strand width)
+LV_STRAND_THICKNESS_BARE=1         # Symbol: stT (mm - bare rectangular strand thickness)
+LV_SPACE_OCCUPIED_AXIALLY=597.6    # Symbol: ALWx (mm - total axial height occupied by winding stack)
+LV_AXIAL_SLACK=11.4                # Symbol: SlkAx (mm - axial clearance / slack remaining SlkLVax)
+LV_CONDUCTOR_AREA=349.272          # Symbol: a (mm² - effective cross-sectional area a2)
+LV_CURRENT_DENSITY=2.51            # Symbol: cd (A/mm² - low voltage current density cdLV)
+LV_RADIAL_WIDTH=31.2               # Symbol: rw (mm - total radial build of LV winding rwLV)
+LV_INNER_DIAMETER=228              # Symbol: di (mm - inner diameter of LV cylinder di2)
+LV_OUTER_DIAMETER=290.4            # Symbol: do_ (mm - outer diameter of LV cylinder do2)
+LV_MEAN_TURN_LENGTH=0.8143         # Symbol: Lmt (m - mean length of one LV turn Lmt2)
+LV_RESISTANCE_PER_PHASE=1.123      # Symbol: r (mΩ - electrical resistance per phase r2)
+LV_COPPER_LOSS=2.588               # Symbol: pcu (kW - $I^2R$ power loss in LV winding pcu2)
+LV_CONDUCTOR_LENGTH=22.8004        # Symbol: Lcu (m - total length of LV conductor per phase)
+LV_VOLUME=0.007963                 # Symbol: Vcu (m³ - total volume of LV copper)
+LV_WEIGHT=71.353                   # Symbol: Wcu (kg - total weight of LV copper Wcu2)
+
+###########################################################
+# HV WINDING (STEPH) - Part 4
+###########################################################
+
+HV_AVAILABLE_HEIGHT=426.3          # Symbol: ALW (mm - axial window height allocated ALW1)
+HV_TURNS=1286                      # Symbol: T (turns - number of HV turns T1)
+# HV_TURNS_RADIALLY="112, 83"      # Symbol: Tr / x2 (turns - disc layout: 112 middle, 83 ends)
+HV_TURNS_AXIALLY=12                # Symbol: Ta / AxC (coils - number of axial discs / coils)
+# HV_PARALLEL_STRANDS=""           # Symbol: stP (strands - parallel strands per conductor)
+HV_AXIAL_STRANDS=4                 # Symbol: NstA / cA (strands - axial strand subdivision)
+HV_RADIAL_STRANDS=28               # Symbol: NstR / cR (strands - radial strand subdivision)
+HV_SPACE_PER_TURN=35.525           # Symbol: ALT / ALPC1 (mm - axial space allocation per turn)
+HV_STRAND_WIDTH_BARE=8             # Symbol: stW / stW1 (mm - bare rectangular strand width)
+HV_STRAND_THICKNESS_BARE=1         # Symbol: stT / stT1 (mm - bare rectangular strand thickness)
+HV_SPACE_OCCUPIED_AXIALLY=599.2    # Symbol: ALWx / AxLw (mm - total axial height occupied by discs)
+HV_AXIAL_SLACK=9.8                 # Symbol: SlkAx / SlkHVax (mm - axial clearance / slack remaining)
+HV_CONDUCTOR_AREA=7.84             # Symbol: a (mm² - effective cross-sectional area a1)
+HV_CURRENT_DENSITY=2.44            # Symbol: cd (A/mm² - high voltage current density cdHV)
+HV_RADIAL_WIDTH=39.2               # Symbol: rw (mm - total radial build of HV disc rwHV)
+HV_INNER_DIAMETER=322.4            # Symbol: di (mm - inner diameter of HV winding di1)
+HV_OUTER_DIAMETER=400.8            # Symbol: do_ (mm - outer diameter of HV winding do1)
+HV_MEAN_TURN_LENGTH=1.136          # Symbol: Lmt (m - mean length of one HV turn Lmt1)
+HV_COPPER_LOSS=4.075               # Symbol: pcu (kW - $I^2R$ power loss in HV winding pcu1)
+HV_RESISTANCE_PER_PHASE=3.727      # Symbol: r (Ω - electrical resistance per phase r1)
+HV_CONDUCTOR_LENGTH=1460.896       # Symbol: Lcu (m - total length of HV conductor per phase)
+HV_VOLUME=0.01145                  # Symbol: Vcu (m³ - total volume of HV copper)
+HV_WEIGHT=102.6                    # Symbol: Wcu (kg - total weight of HV copper Wcu1)
+
+###########################################################
+# PERFORMANCE (HADASSAH) - Part 5
+###########################################################
+
+COPPER_LOSS=6.9962                 # Symbol: pcuT (kW - combined LV and HV copper losses)
+TOTAL_LOSS=7.9222                  # Symbol: ptFL (kW - total full load electrical losses)
+MAX_EFFICIENCY_LOAD=229.2          # Symbol: Ldmxef (kVA - load at which maximum efficiency occurs)
+MAX_EFFICIENCY=99.06               # Symbol: efmx (% - maximum operational efficiency)
+MEAN_TURN_LENGTH=0.9752            # Symbol: Lmt (m - average turn length across both windings)
+COIL_LENGTH=0.5992                 # Symbol: Lc (m - active axial coil stack height)
+AMPERE_TURNS_PER_PHASE=24551       # Symbol: AT (AT/phase - total winding magnetizing force)
+ER=0.0111                          # Symbol: Er (pu - per-unit resistance component)
+EX=0.0716                          # Symbol: Ex (pu - per-unit leakage reactance component)
+EZ=0.0725                          # Symbol: Ez (pu - per-unit impedance: sqrt(Er^2 + Ex^2))
+REG85=0.0472                       # Symbol: Reg85 (pu - voltage regulation at 0.85 lagging PF)
+REGUPF=0.0111                      # Symbol: RegUPF (pu - voltage regulation at unity PF)
+
+###########################################################
+# TANK (YONA) - Part 6
+###########################################################
+
+CLEARANCE_LENGTH=0.14              # Symbol: dL (m - length-wise internal tank clearance)
+CLEARANCE_WIDTH=0.18               # Symbol: dB (m - width-wise internal tank clearance)
+CLEARANCE_HEIGHT=0.5               # Symbol: dH (m - height-wise internal tank clearance above core)
+TUBE_DIAMETER=0.05                 # Symbol: Dct (m - external cooling tube diameter)
+TUBE_HEIGHT=1.25                   # Symbol: Hct (m - external cooling tube vertical length)
+TANK_LENGTH=1.3508                 # Symbol: Lt (m - overall internal tank length)
+TANK_WIDTH=0.5808                  # Symbol: bt (m - overall internal tank width)
+TANK_HEIGHT=1.469                  # Symbol: ht (m - overall internal tank height)
+TANK_VOLUME=1.1525                 # Symbol: Vt (m³ - total internal tank volume)
+SURFACE_AREA=5.67504               # Symbol: St (m² - plain tank heat dissipation surface area)
+TEMPERATURE_RISE=111.678           # Symbol: Tr (°C - plain tank temperature rise without cooling tubes)
+PERMISSIBLE_TEMP_RISE=50           # Symbol: TRP (°C - permissible temperature rise ceiling)
+TUBE_AREA=0.19635                  # Symbol: At (m² - heat dissipation surface area of ONE tube)
+REQUIRED_AREA=9.97219              # Symbol: CAt (m² - total cooling tube surface area required)
+COOLING_TUBES=51                   # Symbol: Nt (tubes - calculated number of external cooling tubes)
+HV_COPPER_WEIGHT=102.6             # Symbol: Wcu1 (kg - HV winding copper weight rollup)
+LV_COPPER_WEIGHT=71.353            # Symbol: Wcu2 (kg - LV winding copper weight rollup)
+TOTAL_IRON_WEIGHT=789              # Symbol: Wiron (kg - active magnetic core weight rollup)
+TOTAL_WEIGHT=972.58                # Symbol: Wtot (kg - total active transformer weight: 1.01*(Cu+Fe))
+SPECIFIC_WEIGHT=1.5438             # Symbol: KgPkva (kg/kVA - active material specific weight)
+
+###########################################################
+# SOFTWARE DERIVED EXTENSIONS
+###########################################################
+
+STEEL_WEIGHT=356.393               # Symbol: Wsteel (kg - weight of fabricated tank steel plate)
+OIL_VOLUME=1.05199                 # Symbol: Voil (m³ - required insulating oil volume)
+OIL_WEIGHT=904.708                 # Symbol: Woil (kg - weight of insulating oil)
+SHIPPING_WEIGHT=2233.68            # Symbol: Wship (kg - total shipping weight: Active + Steel + Oil)
