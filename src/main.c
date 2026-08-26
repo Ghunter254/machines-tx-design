@@ -23,7 +23,13 @@
 #include <string.h>
 
 #include "../include/transformer_design.h"
+#include "../include/frame_design.h"
+#include "../include/no_load_current_design.h"
+#include "../include/lv_windings_design.h"
+#include "../include/hv_windings_design.h"
+#include "../include/performance_design.h"
 #include "../include/tank_design.h"
+
 #include "../include/main.h"
 
 int main(void) {
@@ -47,8 +53,14 @@ int main(void) {
     
     printf("Configuration loaded successfully. \n\n");
 
+    designFrame(&tx);
+    designNoLoadCurrent(&tx);
+    designLVWindings(&tx);
+    designHVWindings(&tx);
+    designPerformance(&tx);
     designTank(&tx);
     printTransformerResults(&tx);
+
     twrite(&tx, "../data/output.txt", NULL, 0);
 
     return EXIT_SUCCESS;
