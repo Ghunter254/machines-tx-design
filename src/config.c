@@ -1,329 +1,212 @@
-#include "../include/transformer_design.h"
+#include "../include/main.h"
+
+#include <ctype.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-static const FieldEntry fieldTable[] =
-{
-    /*==========================================================
-      DESIGN INPUTS - General Specifications
-    ==========================================================*/
-    { "APPARENT_POWER",            offsetof(Transformer, input.KVA),            FIELD_DOUBLE, "kVA"    },
-    { "HV_VOLTAGE",                offsetof(Transformer, input.HV),             FIELD_DOUBLE, "V"      },
-    { "LV_VOLTAGE",                offsetof(Transformer, input.LV),             FIELD_DOUBLE, "V"      },
-    { "PHASES",                    offsetof(Transformer, input.Ph),             FIELD_DOUBLE, "-"      },
-    { "FREQUENCY",                 offsetof(Transformer, input.f),              FIELD_DOUBLE, "Hz"     },
-    { "TARGET_TEMP_RISE",          offsetof(Transformer, input.TRP),            FIELD_DOUBLE, "C"      },
-    { "COPPER_DENSITY",            offsetof(Transformer, input.density_cu),     FIELD_DOUBLE, "kg/m^3" },
-    { "STEEL_DENSITY",             offsetof(Transformer, input.density_fe),     FIELD_DOUBLE, "kg/m^3" },
-    { "OIL_DENSITY",               offsetof(Transformer, input.density_oil),    FIELD_DOUBLE, "kg/m^3" },
+typedef enum { INPUT_DOUBLE, INPUT_INT, INPUT_BOOL } InputType;
+typedef struct { const char *key; size_t offset; InputType type; } InputField;
 
-    /*==========================================================
-      MAGNETIC FRAME & CORE GEOMETRY (LENANA) - Part 1
-    ==========================================================*/
-    { "CORE_STEP_FACTOR",          offsetof(Transformer, input.k),              FIELD_DOUBLE, "-"      },
-    { "EMF_VALUE_FACTOR",          offsetof(Transformer, input.K),              FIELD_DOUBLE, "-"      },
-    { "WINDOW_SPACE_FACTOR",       offsetof(Transformer, input.kw),             FIELD_DOUBLE, "-"      },
-    { "IRON_STACKING_FACTOR",      offsetof(Transformer, input.ki),             FIELD_DOUBLE, "-"      },
-    { "VOLTS_PER_TURN",            offsetof(Transformer, magneticFrame.Et),     FIELD_DOUBLE, "V/turn" },
-    { "CORE_FLUX_DENSITY",         offsetof(Transformer, input.Bm),             FIELD_DOUBLE, "T"      },
-    { "YOKE_FLUX_DENSITY",         offsetof(Transformer, magneticFrame.By),     FIELD_DOUBLE, "T"      },
-    { "AVERAGE_CURRENT_DENSITY",   offsetof(Transformer, input.cdav),           FIELD_DOUBLE, "A/mm^2" },
-    { "CORE_NET_AREA",             offsetof(Transformer, magneticFrame.Ai),     FIELD_DOUBLE, "m^2"    },
-    { "CORE_GROSS_AREA",           offsetof(Transformer, magneticFrame.Ac),     FIELD_DOUBLE, "m^2"    },
-    { "CORE_LIMB_DIAMETER",        offsetof(Transformer, magneticFrame.d),      FIELD_DOUBLE, "m"      },
-    { "CORE_LIMB_LENGTH",          offsetof(Transformer, magneticFrame.L),      FIELD_DOUBLE, "m"      },
-    { "CORE_CENTER_DISTANCE",      offsetof(Transformer, magneticFrame.D),      FIELD_DOUBLE, "m"      },
-    { "WINDOW_AREA",               offsetof(Transformer, magneticFrame.Aw),     FIELD_DOUBLE, "m^2"    },
-    { "YOKE_LENGTH",               offsetof(Transformer, magneticFrame.W),      FIELD_DOUBLE, "m"      },
-    { "YOKE_GROSS_AREA",           offsetof(Transformer, magneticFrame.Ay),     FIELD_DOUBLE, "m^2"    },
-    { "YOKE_WIDTH",                offsetof(Transformer, magneticFrame.by),     FIELD_DOUBLE, "m"      },
-    { "YOKE_HEIGHT",               offsetof(Transformer, magneticFrame.hy),     FIELD_DOUBLE, "m"      },
-    { "CORE_LOSS_PER_KG",          offsetof(Transformer, magneticFrame.WpKgC),  FIELD_DOUBLE, "W/kg"   },
-    { "YOKE_LOSS_PER_KG",          offsetof(Transformer, magneticFrame.WpKgY),  FIELD_DOUBLE, "W/kg"   },
-    { "CORE_WEIGHT",               offsetof(Transformer, magneticFrame.KgC),    FIELD_DOUBLE, "kg"     },
-    { "YOKE_WEIGHT",               offsetof(Transformer, magneticFrame.KgY),    FIELD_DOUBLE, "kg"     },
-    { "CORE_IRON_LOSS",            offsetof(Transformer, magneticFrame.PiC),    FIELD_DOUBLE, "W"      },
-    { "YOKE_IRON_LOSS",            offsetof(Transformer, magneticFrame.PiY),    FIELD_DOUBLE, "W"      },
-    { "TOTAL_IRON_LOSS_KW",        offsetof(Transformer, magneticFrame.Pi),     FIELD_DOUBLE, "kW"     },
+#define INPUT_FIELD(key, member, type) { key, offsetof(Transformer, input) + offsetof(DesignInputs, member), type }
 
-    /*==========================================================
-      NO-LOAD CURRENT EXCITATION - Part 2
-    ==========================================================*/
-    { "CORE_AT_PER_METER",         offsetof(Transformer, noLoadCurrent.atC),    FIELD_DOUBLE, "AT/m"   },
-    { "YOKE_AT_PER_METER",         offsetof(Transformer, noLoadCurrent.atY),    FIELD_DOUBLE, "AT/m"   },
-    { "CORE_TOTAL_AT",             offsetof(Transformer, noLoadCurrent.ATC),    FIELD_DOUBLE, "AT"     },
-    { "YOKE_TOTAL_AT",             offsetof(Transformer, noLoadCurrent.ATY),    FIELD_DOUBLE, "AT"     },
-    { "TOTAL_AT_PER_PHASE",        offsetof(Transformer, noLoadCurrent.ATpPh),  FIELD_DOUBLE, "AT"     },
-    { "LV_TURNS_REF",              offsetof(Transformer, noLoadCurrent.T2),     FIELD_DOUBLE, "turns"  },
-    { "LV_PHASE_CURRENT",          offsetof(Transformer, noLoadCurrent.I2),     FIELD_DOUBLE, "A"      },
-    { "WATTFUL_CURRENT",           offsetof(Transformer, noLoadCurrent.Iw),     FIELD_DOUBLE, "A"      },
-    { "MAGNETIZING_CURRENT",       offsetof(Transformer, noLoadCurrent.Im),     FIELD_DOUBLE, "A"      },
-    { "NO_LOAD_CURRENT",           offsetof(Transformer, noLoadCurrent.I0),     FIELD_DOUBLE, "A"      },
-    { "NO_LOAD_CURRENT_RATIO",     offsetof(Transformer, noLoadCurrent.I0byI2), FIELD_DOUBLE, "%"      },
-
-    /*==========================================================
-      LV WINDING (AITSA) - Part 3
-    ==========================================================*/
-    { "LV_AVAILABLE_HEIGHT",       offsetof(Transformer, lv.ALW),               FIELD_DOUBLE, "mm"     },
-    { "LV_TURNS",                  offsetof(Transformer, lv.T),                 FIELD_DOUBLE, "turns"  },
-    { "LV_TURNS_RADIALLY",         offsetof(Transformer, lv.Tr),                FIELD_DOUBLE, "turns"  },
-    { "LV_TURNS_AXIALLY",          offsetof(Transformer, lv.Ta),                FIELD_DOUBLE, "turns"  },
-    { "LV_PARALLEL_STRANDS",       offsetof(Transformer, lv.stP),               FIELD_DOUBLE, "strands"},
-    { "LV_AXIAL_STRANDS",          offsetof(Transformer, lv.NstA),              FIELD_DOUBLE, "strands"},
-    { "LV_RADIAL_STRANDS",         offsetof(Transformer, lv.NstR),              FIELD_DOUBLE, "strands"},
-    { "LV_SPACE_PER_TURN",         offsetof(Transformer, lv.ALT),               FIELD_DOUBLE, "mm"     },
-    { "LV_STRAND_WIDTH_BARE",      offsetof(Transformer, lv.stW),               FIELD_DOUBLE, "mm"     },
-    { "LV_STRAND_THICKNESS_BARE",  offsetof(Transformer, lv.stT),               FIELD_DOUBLE, "mm"     },
-    { "LV_SPACE_OCCUPIED_AXIALLY", offsetof(Transformer, lv.ALWx),              FIELD_DOUBLE, "mm"     },
-    { "LV_AXIAL_SLACK",            offsetof(Transformer, lv.SlkAx),             FIELD_DOUBLE, "mm"     },
-    { "LV_CONDUCTOR_AREA",         offsetof(Transformer, lv.a),                 FIELD_DOUBLE, "mm^2"   },
-    { "LV_CURRENT_DENSITY",        offsetof(Transformer, lv.cd),                FIELD_DOUBLE, "A/mm^2" },
-    { "LV_RADIAL_WIDTH",           offsetof(Transformer, lv.rw),                FIELD_DOUBLE, "mm"     },
-    { "LV_INNER_DIAMETER",         offsetof(Transformer, lv.di),                FIELD_DOUBLE, "mm"     },
-    { "LV_OUTER_DIAMETER",         offsetof(Transformer, lv.do_),               FIELD_DOUBLE, "mm"     },
-    { "LV_MEAN_TURN_LENGTH",       offsetof(Transformer, lv.Lmt),               FIELD_DOUBLE, "mm"     },
-    { "LV_RESISTANCE_PER_PHASE",   offsetof(Transformer, lv.r),                 FIELD_DOUBLE, "mOhm"   },
-    { "LV_COPPER_LOSS",            offsetof(Transformer, lv.pcu),               FIELD_DOUBLE, "kW"     },
-    { "LV_CONDUCTOR_LENGTH",       offsetof(Transformer, lv.Lcu),               FIELD_DOUBLE, "m"      },
-    { "LV_VOLUME",                 offsetof(Transformer, lv.Vcu),               FIELD_DOUBLE, "m^3"    },
-    { "LV_WEIGHT",                 offsetof(Transformer, lv.Wcu),               FIELD_DOUBLE, "kg"     },
-
-    /*==========================================================
-      HV WINDING (STEPH) - Part 4
-    ==========================================================*/
-    { "HV_AVAILABLE_HEIGHT",       offsetof(Transformer, hv.ALW),               FIELD_DOUBLE, "mm"     },
-    { "HV_TURNS",                  offsetof(Transformer, hv.T),                 FIELD_DOUBLE, "turns"  },
-    { "HV_TURNS_AXIALLY",          offsetof(Transformer, hv.Ta),                FIELD_DOUBLE, "coils"  },
-    { "HV_AXIAL_STRANDS",          offsetof(Transformer, hv.NstA),              FIELD_DOUBLE, "strands"},
-    { "HV_RADIAL_STRANDS",         offsetof(Transformer, hv.NstR),              FIELD_DOUBLE, "strands"},
-    { "HV_SPACE_PER_TURN",         offsetof(Transformer, hv.ALT),               FIELD_DOUBLE, "mm"     },
-    { "HV_STRAND_WIDTH_BARE",      offsetof(Transformer, hv.stW),               FIELD_DOUBLE, "mm"     },
-    { "HV_STRAND_THICKNESS_BARE",  offsetof(Transformer, hv.stT),               FIELD_DOUBLE, "mm"     },
-    { "HV_SPACE_OCCUPIED_AXIALLY", offsetof(Transformer, hv.ALWx),              FIELD_DOUBLE, "mm"     },
-    { "HV_AXIAL_SLACK",            offsetof(Transformer, hv.SlkAx),             FIELD_DOUBLE, "mm"     },
-    { "HV_CONDUCTOR_AREA",         offsetof(Transformer, hv.a),                 FIELD_DOUBLE, "mm^2"   },
-    { "HV_CURRENT_DENSITY",        offsetof(Transformer, hv.cd),                FIELD_DOUBLE, "A/mm^2" },
-    { "HV_RADIAL_WIDTH",           offsetof(Transformer, hv.rw),                FIELD_DOUBLE, "mm"     },
-    { "HV_INNER_DIAMETER",         offsetof(Transformer, hv.di),                FIELD_DOUBLE, "mm"     },
-    { "HV_OUTER_DIAMETER",         offsetof(Transformer, hv.do_),               FIELD_DOUBLE, "mm"     },
-    { "HV_MEAN_TURN_LENGTH",       offsetof(Transformer, hv.Lmt),               FIELD_DOUBLE, "m"      },
-    { "HV_COPPER_LOSS",            offsetof(Transformer, hv.pcu),               FIELD_DOUBLE, "kW"     },
-    { "HV_RESISTANCE_PER_PHASE",   offsetof(Transformer, hv.r),                 FIELD_DOUBLE, "Ohm"    },
-    { "HV_CONDUCTOR_LENGTH",       offsetof(Transformer, hv.Lcu),               FIELD_DOUBLE, "m"      },
-    { "HV_VOLUME",                 offsetof(Transformer, hv.Vcu),               FIELD_DOUBLE, "m^3"    },
-    { "HV_WEIGHT",                 offsetof(Transformer, hv.Wcu),               FIELD_DOUBLE, "kg"     },
-
-    /*==========================================================
-      PERFORMANCE (HADASSAH) - Part 5
-    ==========================================================*/
-    { "COPPER_LOSS",               offsetof(Transformer, performance.pcuT),     FIELD_DOUBLE, "kW"     },
-    { "TOTAL_LOSS",                offsetof(Transformer, performance.ptFL),     FIELD_DOUBLE, "kW"     },
-    { "MAX_EFFICIENCY_LOAD",       offsetof(Transformer, performance.Ldmxef),   FIELD_DOUBLE, "kVA"    },
-    { "MAX_EFFICIENCY",            offsetof(Transformer, performance.efmx),     FIELD_DOUBLE, "%"      },
-    { "MEAN_TURN_LENGTH",          offsetof(Transformer, performance.Lmt),      FIELD_DOUBLE, "m"      },
-    { "COIL_LENGTH",               offsetof(Transformer, performance.Lc),       FIELD_DOUBLE, "m"      },
-    { "AMPERE_TURNS_PER_PHASE",    offsetof(Transformer, performance.AT),       FIELD_DOUBLE, "AT"     },
-    { "ER",                        offsetof(Transformer, performance.Er),       FIELD_DOUBLE, "pu"     },
-    { "EX",                        offsetof(Transformer, performance.Ex),       FIELD_DOUBLE, "pu"     },
-    { "EZ",                        offsetof(Transformer, performance.Ez),       FIELD_DOUBLE, "pu"     },
-    { "REG85",                     offsetof(Transformer, performance.Reg85),    FIELD_DOUBLE, "pu"     },
-    { "REGUPF",                    offsetof(Transformer, performance.RegUPF),   FIELD_DOUBLE, "pu"     },
-
-    /*==========================================================
-      TANK (YONA) - Part 6
-    ==========================================================*/
-    { "CLEARANCE_LENGTH",          offsetof(Transformer, input.dL),             FIELD_DOUBLE, "m"      },
-    { "CLEARANCE_WIDTH",           offsetof(Transformer, input.dB),             FIELD_DOUBLE, "m"      },
-    { "CLEARANCE_HEIGHT",          offsetof(Transformer, input.dH),             FIELD_DOUBLE, "m"      },
-    { "TUBE_DIAMETER",             offsetof(Transformer, input.Dct),            FIELD_DOUBLE, "m"      },
-    { "TUBE_HEIGHT",               offsetof(Transformer, input.Hct),            FIELD_DOUBLE, "m"      },
-    { "TANK_LENGTH",               offsetof(Transformer, tank.Lt),              FIELD_DOUBLE, "m"      },
-    { "TANK_WIDTH",                offsetof(Transformer, tank.bt),              FIELD_DOUBLE, "m"      },
-    { "TANK_HEIGHT",               offsetof(Transformer, tank.ht),              FIELD_DOUBLE, "m"      },
-    { "TANK_VOLUME",               offsetof(Transformer, tank.Vt),              FIELD_DOUBLE, "m^3"    },
-    { "SURFACE_AREA",              offsetof(Transformer, tank.St),              FIELD_DOUBLE, "m^2"    },
-    { "TEMPERATURE_RISE",          offsetof(Transformer, tank.Tr),              FIELD_DOUBLE, "C"      },
-    { "PERMISSIBLE_TEMP_RISE",     offsetof(Transformer, input.TRP),            FIELD_DOUBLE, "C"      },
-    { "TUBE_AREA",                 offsetof(Transformer, tank.At),              FIELD_DOUBLE, "m^2"    },
-    { "REQUIRED_AREA",             offsetof(Transformer, tank.CAt),             FIELD_DOUBLE, "m^2"    },
-    { "COOLING_TUBES",             offsetof(Transformer, tank.Nt),              FIELD_INT,    "-"      },
-    { "HV_COPPER_WEIGHT",          offsetof(Transformer, tank.Wcu1),            FIELD_DOUBLE, "kg"     },
-    { "LV_COPPER_WEIGHT",          offsetof(Transformer, tank.Wcu2),            FIELD_DOUBLE, "kg"     },
-    { "TOTAL_IRON_WEIGHT",         offsetof(Transformer, tank.Wiron),           FIELD_DOUBLE, "kg"     },
-    { "TOTAL_WEIGHT",              offsetof(Transformer, tank.Wtot),            FIELD_DOUBLE, "kg"     },
-    { "SPECIFIC_WEIGHT",           offsetof(Transformer, tank.KgPkva),          FIELD_DOUBLE, "kg/kVA" },
-
-    /*==========================================================
-      SOFTWARE DERIVED EXTENSIONS
-    ==========================================================*/
-    { "STEEL_WEIGHT",              offsetof(Transformer, tankDerived.Wsteel),   FIELD_DOUBLE, "kg"     },
-    { "OIL_VOLUME",                offsetof(Transformer, tankDerived.Voil),     FIELD_DOUBLE, "m^3"    },
-    { "OIL_WEIGHT",                offsetof(Transformer, tankDerived.Woil),     FIELD_DOUBLE, "kg"     },
-    { "SHIPPING_WEIGHT",           offsetof(Transformer, tankDerived.Wship),    FIELD_DOUBLE, "kg"     }
+static const InputField fields[] = {
+    INPUT_FIELD("APPARENT_POWER", KVA, INPUT_DOUBLE),
+    INPUT_FIELD("HV_VOLTAGE", HV, INPUT_DOUBLE),
+    INPUT_FIELD("LV_VOLTAGE", LV, INPUT_DOUBLE),
+    INPUT_FIELD("PHASES", Ph, INPUT_INT),
+    INPUT_FIELD("FREQUENCY", f, INPUT_DOUBLE),
+    INPUT_FIELD("VECTOR_CLOCK", vectorClock, INPUT_INT),
+    INPUT_FIELD("TARGET_TEMP_RISE", TRP, INPUT_DOUBLE),
+    INPUT_FIELD("REFERENCE_TEMPERATURE", referenceTemperatureC, INPUT_DOUBLE),
+    INPUT_FIELD("AMBIENT_TEMPERATURE", ambientTemperatureC, INPUT_DOUBLE),
+    INPUT_FIELD("COPPER_DENSITY", density_cu, INPUT_DOUBLE),
+    INPUT_FIELD("STEEL_DENSITY", density_fe, INPUT_DOUBLE),
+    INPUT_FIELD("OIL_DENSITY", density_oil, INPUT_DOUBLE),
+    INPUT_FIELD("COPPER_RESISTIVITY_20C", copperResistivity20, INPUT_DOUBLE),
+    INPUT_FIELD("COPPER_TEMPERATURE_CONSTANT", copperTemperatureConstant, INPUT_DOUBLE),
+    INPUT_FIELD("CORE_STEP_FACTOR", k, INPUT_DOUBLE),
+    INPUT_FIELD("EMF_VALUE_FACTOR", K, INPUT_DOUBLE),
+    INPUT_FIELD("CORE_FLUX_DENSITY", Bm, INPUT_DOUBLE),
+    INPUT_FIELD("AVERAGE_CURRENT_DENSITY", cdav, INPUT_DOUBLE),
+    INPUT_FIELD("IRON_STACKING_FACTOR", ki, INPUT_DOUBLE),
+    INPUT_FIELD("WINDOW_ASPECT_RATIO", windowAspectRatio, INPUT_DOUBLE),
+    INPUT_FIELD("YOKE_AREA_FACTOR", yokeAreaFactor, INPUT_DOUBLE),
+    INPUT_FIELD("YOKE_WIDTH_FACTOR", yokeWidthFactor, INPUT_DOUBLE),
+    INPUT_FIELD("WINDOW_SPACE_MULTIPLIER", windowSpaceMultiplier, INPUT_DOUBLE),
+    INPUT_FIELD("DIMENSION_ROUNDING", dimensionRoundingM, INPUT_DOUBLE),
+    INPUT_FIELD("CORE_LOSS_REFERENCE_FLUX", coreLossReferenceFluxT, INPUT_DOUBLE),
+    INPUT_FIELD("CORE_LOSS_REFERENCE", coreLossReferenceWKg, INPUT_DOUBLE),
+    INPUT_FIELD("YOKE_LOSS_REFERENCE_FLUX", yokeLossReferenceFluxT, INPUT_DOUBLE),
+    INPUT_FIELD("YOKE_LOSS_REFERENCE", yokeLossReferenceWKg, INPUT_DOUBLE),
+    INPUT_FIELD("LOSS_CURVE_EXPONENT", lossCurveExponent, INPUT_DOUBLE),
+    INPUT_FIELD("IRON_LOSS_BUILD_FACTOR", ironLossBuildFactor, INPUT_DOUBLE),
+    INPUT_FIELD("CORE_AT_PER_METER", coreATPerMeter, INPUT_DOUBLE),
+    INPUT_FIELD("YOKE_AT_PER_METER", yokeATPerMeter, INPUT_DOUBLE),
+    INPUT_FIELD("EXCITATION_BUILD_FACTOR", excitationBuildFactor, INPUT_DOUBLE),
+    INPUT_FIELD("CONDUCTOR_INSULATION", conductorInsulationMm, INPUT_DOUBLE),
+    INPUT_FIELD("COPPER_STRAY_LOSS_FACTOR", copperStrayLossFactor, INPUT_DOUBLE),
+    INPUT_FIELD("LV_TURNS_RADIALLY", lvTurnsRadially, INPUT_INT),
+    INPUT_FIELD("LV_PARALLEL_STRANDS", lvParallelStrands, INPUT_INT),
+    INPUT_FIELD("LV_AXIAL_STRANDS", lvAxialStrands, INPUT_INT),
+    INPUT_FIELD("LV_STRAND_WIDTH_BARE", lvStrandWidthMm, INPUT_DOUBLE),
+    INPUT_FIELD("LV_STRAND_THICKNESS_BARE", lvStrandThicknessMm, INPUT_DOUBLE),
+    INPUT_FIELD("LV_EDGE_FACTOR", lvEdgeFactor, INPUT_DOUBLE),
+    INPUT_FIELD("LV_WINDING_HEIGHT_FRACTION", lvWindingHeightFraction, INPUT_DOUBLE),
+    INPUT_FIELD("LV_INTER_TURN_INSULATION", lvInterTurnInsulationMm, INPUT_DOUBLE),
+    INPUT_FIELD("LV_END_INSULATION", lvEndInsulationMm, INPUT_DOUBLE),
+    INPUT_FIELD("LV_RADIAL_INSULATION", lvRadialInsulationMm, INPUT_DOUBLE),
+    INPUT_FIELD("CORE_TO_LV_OIL_DUCT", coreToLvOilDuctMm, INPUT_DOUBLE),
+    INPUT_FIELD("CORE_TO_LV_CYLINDER", coreToLvCylinderMm, INPUT_DOUBLE),
+    INPUT_FIELD("LV_FORMER_TO_WINDING_DUCT", lvFormerToWindingDuctMm, INPUT_DOUBLE),
+    INPUT_FIELD("HV_COILS", hvCoils, INPUT_INT),
+    INPUT_FIELD("HV_AXIAL_STRANDS", hvAxialStrands, INPUT_INT),
+    INPUT_FIELD("HV_RADIAL_STRANDS", hvRadialStrands, INPUT_INT),
+    INPUT_FIELD("HV_STRAND_WIDTH_BARE", hvStrandWidthMm, INPUT_DOUBLE),
+    INPUT_FIELD("HV_STRAND_THICKNESS_BARE", hvStrandThicknessMm, INPUT_DOUBLE),
+    INPUT_FIELD("HV_EDGE_FACTOR", hvEdgeFactor, INPUT_DOUBLE),
+    INPUT_FIELD("HV_WINDING_HEIGHT_FRACTION", hvWindingHeightFraction, INPUT_DOUBLE),
+    INPUT_FIELD("HV_INTER_COIL_INSULATION", hvInterCoilInsulationMm, INPUT_DOUBLE),
+    INPUT_FIELD("HV_END_RING", hvEndRingMm, INPUT_DOUBLE),
+    INPUT_FIELD("HV_END_INSULATION", hvEndInsulationMm, INPUT_DOUBLE),
+    INPUT_FIELD("LV_TO_HV_OIL_DUCT", lvToHvOilDuctMm, INPUT_DOUBLE),
+    INPUT_FIELD("LV_TO_HV_CYLINDER", lvToHvCylinderMm, INPUT_DOUBLE),
+    INPUT_FIELD("HV_FORMER_TO_WINDING_DUCT", hvFormerToWindingDuctMm, INPUT_DOUBLE),
+    INPUT_FIELD("TUBE_DIAMETER", Dct, INPUT_DOUBLE),
+    INPUT_FIELD("TUBE_HEIGHT", Hct, INPUT_DOUBLE),
+    INPUT_FIELD("CLEARANCE_LENGTH", dL, INPUT_DOUBLE),
+    INPUT_FIELD("CLEARANCE_WIDTH", dB, INPUT_DOUBLE),
+    INPUT_FIELD("CLEARANCE_HEIGHT", dH, INPUT_DOUBLE),
+    INPUT_FIELD("PLAIN_TANK_DISSIPATION", plainTankDissipation, INPUT_DOUBLE),
+    INPUT_FIELD("TUBE_COEFFICIENT", tubeCoefficient, INPUT_DOUBLE),
+    INPUT_FIELD("TUBE_EFFECTIVENESS", tubeEffectiveness, INPUT_DOUBLE),
+    INPUT_FIELD("TANK_PLATE_THICKNESS", tankPlateThicknessM, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_BM_MIN", optimizerBmMin, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_BM_MAX", optimizerBmMax, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_CURRENT_DENSITY_MIN", optimizerCurrentDensityMin, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_CURRENT_DENSITY_MAX", optimizerCurrentDensityMax, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_ASPECT_RATIO_MIN", optimizerAspectRatioMin, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_ASPECT_RATIO_MAX", optimizerAspectRatioMax, INPUT_DOUBLE),
+    INPUT_FIELD("COPPER_COST_INDEX", copperCostIndex, INPUT_DOUBLE),
+    INPUT_FIELD("CORE_STEEL_COST_INDEX", coreSteelCostIndex, INPUT_DOUBLE),
+    INPUT_FIELD("TANK_STEEL_COST_INDEX", tankSteelCostIndex, INPUT_DOUBLE),
+    INPUT_FIELD("OIL_COST_INDEX", oilCostIndex, INPUT_DOUBLE),
+    INPUT_FIELD("AUTOMATIC_CONDUCTOR_SIZING", automaticConductorSizing, INPUT_BOOL)
 };
 
-static const int fieldTableSize = sizeof(fieldTable) / sizeof(fieldTable[0]);
-
-static const FieldEntry *findField(const char *key) {
-    for (int i = 0; i < fieldTableSize; i++)
-        if (strcmp(fieldTable[i].key, key) == 0) return &fieldTable[i];
-    return NULL;
+static int textEquals(const char *left, const char *right)
+{
+    while (*left && *right) {
+        if (toupper((unsigned char)*left) != toupper((unsigned char)*right)) return 0;
+        left++;
+        right++;
+    }
+    return *left == '\0' && *right == '\0';
 }
 
-static double getFieldValue(const Transformer *tx, const FieldEntry *f) {
-    const char *base = (const char *)tx;
-    if (f->type == FIELD_INT) return (double)(*(const int *)(base + f->offset));
-    return *(const double *)(base + f->offset);
+static char *trim(char *text)
+{
+    while (isspace((unsigned char)*text)) text++;
+    char *end = text + strlen(text);
+    while (end > text && isspace((unsigned char)end[-1])) end--;
+    *end = '\0';
+    return text;
 }
 
-static void setFieldValue(Transformer *tx, const FieldEntry *f, double value) {
-    char *base = (char *)tx;
-    if (f->type == FIELD_INT) *(int *)(base + f->offset) = (int)value;
-    else                      *(double *)(base + f->offset) = value;
+void setDefaultConfiguration(Transformer *tx)
+{
+    memset(tx, 0, sizeof(*tx));
+    DesignInputs *in = &tx->input;
+    in->KVA = 630.0; in->HV = 11000.0; in->LV = 415.0; in->Ph = 3; in->f = 50.0;
+    in->hvConnection = CONNECTION_DELTA; in->lvConnection = CONNECTION_STAR;
+    in->vectorClock = 11; strcpy(in->cooling, "ONAN");
+    in->TRP = 50.0; in->referenceTemperatureC = 75.0; in->ambientTemperatureC = 30.0;
+    in->density_cu = 8960.0; in->density_fe = 7850.0; in->density_oil = 860.0;
+    in->copperResistivity20 = 0.01724; in->copperTemperatureConstant = 235.0;
+    in->k = 0.6; in->K = 0.6; in->Bm = 1.6; in->cdav = 2.6; in->ki = 0.9;
+    in->windowAspectRatio = 3.0; in->yokeAreaFactor = 1.15; in->yokeWidthFactor = 0.9;
+    in->windowSpaceMultiplier = 1.15; in->dimensionRoundingM = 0.001;
+    in->coreLossReferenceFluxT = 1.6; in->coreLossReferenceWKg = 1.4;
+    in->yokeLossReferenceFluxT = 1.33; in->yokeLossReferenceWKg = 1.02;
+    in->lossCurveExponent = 2.0; in->ironLossBuildFactor = 1.0;
+    in->coreATPerMeter = 200.0; in->yokeATPerMeter = 110.0; in->excitationBuildFactor = 1.15;
+    in->conductorInsulationMm = 0.4; in->copperStrayLossFactor = 1.05;
+    in->lvTurnsRadially = 7; in->lvParallelStrands = 18; in->lvAxialStrands = 6;
+    in->lvStrandWidthMm = 20.0; in->lvStrandThicknessMm = 1.0; in->lvEdgeFactor = 0.9702;
+    in->lvWindingHeightFraction = 0.8; in->lvInterTurnInsulationMm = 2.0;
+    in->lvEndInsulationMm = 100.0; in->lvRadialInsulationMm = 1.8;
+    in->coreToLvOilDuctMm = 5.0; in->coreToLvCylinderMm = 3.0; in->lvFormerToWindingDuctMm = 5.0;
+    in->hvCoils = 12; in->hvAxialStrands = 4; in->hvRadialStrands = 28;
+    in->hvStrandWidthMm = 8.0; in->hvStrandThicknessMm = 1.0; in->hvEdgeFactor = 0.98;
+    in->hvWindingHeightFraction = 0.7; in->hvInterCoilInsulationMm = 6.0;
+    in->hvEndRingMm = 30.0; in->hvEndInsulationMm = 100.0;
+    in->lvToHvOilDuctMm = 5.0; in->lvToHvCylinderMm = 6.0; in->hvFormerToWindingDuctMm = 5.0;
+    in->Dct = 0.05; in->Hct = 1.25; in->dL = 0.14; in->dB = 0.18; in->dH = 0.5;
+    in->plainTankDissipation = 12.5; in->tubeCoefficient = 6.5; in->tubeEffectiveness = 1.35;
+    in->tankPlateThicknessM = 0.008;
+    in->optimizerBmMin = 1.4; in->optimizerBmMax = 1.7;
+    in->optimizerCurrentDensityMin = 2.3; in->optimizerCurrentDensityMax = 3.2;
+    in->optimizerAspectRatioMin = 2.5; in->optimizerAspectRatioMax = 4.0;
+    in->copperCostIndex = 8.0; in->coreSteelCostIndex = 2.4;
+    in->tankSteelCostIndex = 1.2; in->oilCostIndex = 1.0;
+    in->automaticConductorSizing = false;
 }
 
-static int keyWanted(const char *key, const char **keys, int nkeys) {
-    if (keys == NULL) return 1;          // NULL => accept every recognized key
-    for (int i = 0; i < nkeys; i++)
-        if (strcmp(keys[i], key) == 0) return 1;
-    return 0;
+int applyConfigurationValue(Transformer *tx, const char *key, const char *rawValue)
+{
+    char valueBuffer[128];
+    snprintf(valueBuffer, sizeof(valueBuffer), "%s", rawValue);
+    char *comment = strchr(valueBuffer, '#');
+    if (comment) *comment = '\0';
+    char *value = trim(valueBuffer);
+
+    if (textEquals(key, "HV_CONNECTION")) return connectionFromString(value, &tx->input.hvConnection);
+    if (textEquals(key, "LV_CONNECTION")) return connectionFromString(value, &tx->input.lvConnection);
+    if (textEquals(key, "COOLING_METHOD")) {
+        snprintf(tx->input.cooling, sizeof(tx->input.cooling), "%s", value);
+        return 0;
+    }
+
+    for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
+        if (!textEquals(key, fields[i].key)) continue;
+        char *base = (char *)tx;
+        char *end = NULL;
+        double number = strtod(value, &end);
+        if (end == value) return -1;
+        if (fields[i].type == INPUT_DOUBLE) *(double *)(base + fields[i].offset) = number;
+        else if (fields[i].type == INPUT_INT) *(int *)(base + fields[i].offset) = (int)number;
+        else *(bool *)(base + fields[i].offset) = number != 0.0;
+        return 0;
+    }
+    return 1;
 }
 
-/* ---------------------------------------------------------------------- */
-/* tread: pull values FROM the txt file INTO the struct.                  */
-/* Pass keys=NULL, nkeys=0 to load everything */
-/* Pass a specific keys[] to only refresh those fields.                   */
-/* ---------------------------------------------------------------------- */
-int tread(Transformer *tx, const char *filename, const char **keys, int nkeys) {
-    FILE *fp = fopen(filename, "r");
-    if (!fp) { perror("tread: could not open config"); return -1; }
-
-    char line[300];
-    while (fgets(line, sizeof(line), fp)) {
-        line[strcspn(line, "\r\n")] = '\0';
-        if (line[0] == '\0' || line[0] == '#') continue;
-
-        char *eq = strchr(line, '=');
-        if (!eq) continue;
-        *eq = '\0';
-        char *key = line;
-        char *valueStr = eq + 1;
-
-        if (!keyWanted(key, keys, nkeys)) continue;
-
-        const FieldEntry *f = findField(key);
-        if (!f) {
-            printf("Warning: Unrecognized configuration key [%s] ignored.\n", key);
-            continue;
+int loadConfiguration(Transformer *tx, const char *filename)
+{
+    FILE *file = fopen(filename, "r");
+    if (!file) return -1;
+    char line[512];
+    int lineNumber = 0;
+    while (fgets(line, sizeof(line), file)) {
+        lineNumber++;
+        char *content = trim(line);
+        if (*content == '\0' || *content == '#') continue;
+        char *equals = strchr(content, '=');
+        if (!equals) {
+            fprintf(stderr, "config:%d: expected KEY=VALUE\n", lineNumber);
+            fclose(file);
+            return -2;
         }
-        setFieldValue(tx, f, strtod(valueStr, NULL));
-    }
-    fclose(fp);
-
-    return 0;
-}
-
-/* ---------------------------------------------------------------------- */
-/* twrite: push current struct values back OUT to the txt file.           */
-/* Only the lines matching keys[] are rewritten in place; every other     */
-/* line (comments, blanks, other keys) is preserved untouched. Any        */
-/* requested key not already present is appended.                        */
-/* ---------------------------------------------------------------------- */
-int twrite(Transformer *tx, const char *filename, const char **keys, int nkeys) {
-    /* NULL keys => operate over every entry in fieldTable, not just a subset */
-    const char **effectiveKeys = keys;
-    int effectiveN = nkeys;
-    if (keys == NULL) {
-        effectiveN = fieldTableSize;
-        effectiveKeys = malloc(effectiveN * sizeof(char *));
-        for (int i = 0; i < effectiveN; i++) effectiveKeys[i] = fieldTable[i].key;
-    }
-
-    FILE *fp = fopen(filename, "r");
-    char **lines = NULL;
-    int lineCount = 0, capacity = 0;
-
-    if (fp) {
-        char buf[256];
-        while (fgets(buf, sizeof(buf), fp)) {
-            if (lineCount == capacity) {
-                capacity = capacity ? capacity * 2 : 32;
-                lines = realloc(lines, capacity * sizeof(char *));
-            }
-            buf[strcspn(buf, "\r\n")] = '\0';
-            lines[lineCount++] = strdup(buf);
-        }
-        fclose(fp);
-    }
-
-    int *written = calloc(effectiveN > 0 ? effectiveN : 1, sizeof(int));
-
-    for (int i = 0; i < lineCount; i++) {
-        char temp[256];
-        strncpy(temp, lines[i], sizeof(temp) - 1);
-        temp[sizeof(temp) - 1] = '\0';
-        if (temp[0] == '\0' || temp[0] == '#') continue;
-
-        char *eq = strchr(temp, '=');
-        if (!eq) continue;
-        *eq = '\0';
-        char *key = temp;
-
-        for (int k = 0; k < effectiveN; k++) {
-            if (strcmp(effectiveKeys[k], key) == 0) {
-                const FieldEntry *f = findField(key);
-                if (f) {
-                    double value = getFieldValue(tx, f);
-                    char newLine[300];
-                    if (f->type == FIELD_INT)
-                        snprintf(newLine, sizeof(newLine), "%s=%d", key, (int)value);
-                    else
-                        snprintf(newLine, sizeof(newLine), "%s=%.6g", key, value);
-                    free(lines[i]);
-                    lines[i] = strdup(newLine);
-                }
-                written[k] = 1;
-                break;
-            }
+        *equals = '\0';
+        char *key = trim(content);
+        int result = applyConfigurationValue(tx, key, trim(equals + 1));
+        if (result != 0) {
+            fprintf(stderr, "config:%d: invalid or unknown key '%s'\n", lineNumber, key);
+            fclose(file);
+            return -3;
         }
     }
-
-    for (int k = 0; k < effectiveN; k++) {
-        if (written[k]) continue;
-        const FieldEntry *f = findField(effectiveKeys[k]);
-        if (!f) {
-            printf("Warning: twrite found no struct field for key [%s]\n", effectiveKeys[k]);
-            continue;
-        }
-        double value = getFieldValue(tx, f);
-        char newLine[300];
-        if (f->type == FIELD_INT)
-            snprintf(newLine, sizeof(newLine), "%s=%d", effectiveKeys[k], (int)value);
-        else
-            snprintf(newLine, sizeof(newLine), "%s=%.6g", effectiveKeys[k], value);
-
-        if (lineCount == capacity) {
-            capacity = capacity ? capacity * 2 : 32;
-            lines = realloc(lines, capacity * sizeof(char *));
-        }
-        lines[lineCount++] = strdup(newLine);
-    }
-    free(written);
-    if (keys == NULL) free((void *)effectiveKeys);   // free the temp array we built above
-
-    FILE *out = fopen(filename, "w");
-    if (!out) {
-        perror("twrite: could not open config for writing");
-        for (int i = 0; i < lineCount; i++) free(lines[i]);
-        free(lines);
-        return -1;
-    }
-    for (int i = 0; i < lineCount; i++) {
-        fprintf(out, "%s\n", lines[i]);
-        free(lines[i]);
-    }
-    free(lines);
-    fclose(out);
+    fclose(file);
     return 0;
 }

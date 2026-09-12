@@ -1,55 +1,62 @@
-#include "../include/transformer_design.h"
-#include <stdio.h>
+#include "../include/hv_windings_design.h"
+
 #include <math.h>
 
-static void calculateHVBaseAndLayout(Transformer *tx);
-static void calculateHVConductorDimensions(Transformer *tx);
-static void calculateHVAxialAndRadialBuild(Transformer *tx);
-static void calculateHVDiametersAndLosses(Transformer *tx);
+#define PI 3.14159265358979323846
 
-void designHVWinding(Transformer *tx)
+static double roundUpTenth(double value)
 {
-    calculateHVBaseAndLayout(tx);
-    calculateHVConductorDimensions(tx);
-    calculateHVAxialAndRadialBuild(tx);
-    calculateHVDiametersAndLosses(tx);
+    return ceil((value - 1e-12) * 10.0) / 10.0;
 }
 
-static void calculateHVBaseAndLayout(Transformer *tx) 
+void designHVWindings(Transformer *tx)
 {
-    // Calculate:
-    // - No. of turns/ph (T1)
-    // - Phase current in HV Wdg (I1)
-    // - Disc layout turn distribution and strands (x1, cA, x2, x3)
-}
+    DesignInputs *in = &tx->input;
+    Winding *hv = &tx->hv;
+    const double hvPhaseVoltage = windingPhaseVoltage(in->HV, in->hvConnection);
+    const double lvPhaseVoltage = windingPhaseVoltage(in->LV, in->lvConnection);
 
-static void calculateHVConductorDimensions(Transformer *tx) 
-{
-    // Calculate:
-    // - Length available for winding (ALW)
-    // - Space per coil (ALPC) and space for each strand (ALPC1)
-    // - Strand width (stW1)
-    // - Initial Current density (cdHV) and CS area of conductor (a1)
-    // - Thickness of strand (stT1)
-    // - Corrected CS area of strand (a1) and corrected Current density (cdHV)
-}
+    hv->phaseVoltage = hvPhaseVoltage;
+    hv->T = ceil(tx->lv.T * hvPhaseVoltage / lvPhaseVoltage);
+    hv->I = windingPhaseCurrent(in->KVA, in->HV, in->Ph, in->hvConnection);
+    hv->Ta = in->hvCoils;
+    hv->NstA = in->hvAxialStrands;
+    hv->NstR = in->hvRadialStrands;
+    hv->Tr = hv->NstR;
+    hv->stP = 1.0;
+    hv->stW = in->hvStrandWidthMm;
+    hv->stT = in->hvStrandThicknessMm;
 
-static void calculateHVAxialAndRadialBuild(Transformer *tx) 
-{
-    // Calculate:
-    // - Axial length of strands (aLc)
-    // - Radial width of Winding (rwHV)
-    // - Axial length occupied by all strands (AxLw)
-    // - Total Axial Length with end rings/insulation (AxL)
-    // - Slack Available axially (SlkHVax)
-}
+    if (in->automaticConductorSizing) {
+        const double required = hv->I / (in->cdav * hv->stW * in->hvEdgeFactor);
+        hv->stT = roundUpTenth(required);
+    }
 
-static void calculateHVDiametersAndLosses(Transformer *tx) 
-{
-    // Calculate:
-    // - Inside dia of HV wdg (di1)
-    // - Outer dia of HV winding (do1)
-    // - Mean length of HV turns (Lmt1)
-    // - Res of HV wdg/ph (r1)
-    // - Copper loss in HV Wdg (pcu1)
+    hv->middleCoilTurns = hv->NstA * hv->NstR;
+    hv->endCoilTurns = (hv->T - hv->middleCoilTurns * (hv->Ta - 2.0)) / 2.0;
+    hv->ALW = in->hvWindingHeightFraction * tx->magneticFrame.L * 1000.0;
+    hv->ALT = hv->ALW / hv->Ta;
+    hv->activeAxialLength = hv->Ta * hv->NstA *
+        (hv->stW + in->conductorInsulationMm) +
+        (hv->Ta - 1.0) * in->hvInterCoilInsulationMm;
+    hv->ALWx = hv->activeAxialLength + in->hvEndRingMm + in->hvEndInsulationMm;
+    hv->SlkAx = tx->magneticFrame.L * 1000.0 - hv->ALWx;
+
+    hv->a = hv->stW * hv->stT * in->hvEdgeFactor;
+    hv->cd = hv->I / hv->a;
+    hv->rw = hv->NstR * (hv->stT + in->conductorInsulationMm);
+    hv->di = tx->lv.do_ + 2.0 *
+        (in->lvToHvOilDuctMm + in->lvToHvCylinderMm + in->hvFormerToWindingDuctMm);
+    hv->do_ = hv->di + 2.0 * hv->rw;
+    hv->Lmt = PI * (hv->di + hv->do_) / 2000.0;
+
+    hv->Lcu = hv->Lmt * hv->T;
+    hv->Vcu = hv->Lcu * hv->a * 1e-6;
+    hv->Wcu = hv->Vcu * in->density_cu;
+    hv->r20 = in->copperResistivity20 * hv->Lcu / hv->a;
+    hv->rReference = hv->r20 *
+        (in->copperTemperatureConstant + in->referenceTemperatureC) /
+        (in->copperTemperatureConstant + 20.0);
+    hv->pcu20 = in->Ph * hv->I * hv->I * hv->r20 / 1000.0;
+    hv->pcuReference = in->Ph * hv->I * hv->I * hv->rReference / 1000.0;
 }

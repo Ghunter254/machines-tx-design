@@ -1,0 +1,8 @@
+{
+  "name": "tx-c-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}

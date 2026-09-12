@@ -1,38 +1,24 @@
-#include "../include/transformer_design.h"
-#include <stdio.h>
-#include <math.h>
+#include "../include/no_load_current_design.h"
 
-static void calculateAmpereTurns(Transformer *tx);
-static void calculateLVBaseReferences(Transformer *tx);
-static void calculateExcitationCurrents(Transformer *tx);
+#include <math.h>
 
 void designNoLoadCurrent(Transformer *tx)
 {
-    calculateAmpereTurns(tx);
-    calculateLVBaseReferences(tx);
-    calculateExcitationCurrents(tx);
-}
+    DesignInputs *in = &tx->input;
+    MagneticFrame *frame = &tx->magneticFrame;
+    NoLoadCurrent *nl = &tx->noLoadCurrent;
+    const double lvPhaseVoltage = windingPhaseVoltage(in->LV, in->lvConnection);
 
-static void calculateAmpereTurns(Transformer *tx) 
-{
-    // Calculate:
-    // - AT for Core (ATC)
-    // - AT for Yoke (ATY)
-    // - Total AT/phase (ATpPh)
-}
+    nl->atC = in->coreATPerMeter;
+    nl->atY = in->yokeATPerMeter;
+    nl->ATC = in->Ph * nl->atC * frame->L;
+    nl->ATY = 2.0 * nl->atY * frame->W;
+    nl->ATpPh = (nl->ATC + nl->ATY) / in->Ph;
 
-static void calculateLVBaseReferences(Transformer *tx) 
-{
-    // Calculate:
-    // - No. of Turns in LV wdg (T2)
-    // - Phase Current in LV Wdg (I2)
-}
-
-static void calculateExcitationCurrents(Transformer *tx) 
-{
-    // Calculate:
-    // - Wattful Current (Iw)
-    // - Magnetizing current (Im)
-    // - No load Current (I0)
-    // - Ratio of I0/I2 (I0byI2)
+    nl->T2 = ceil(lvPhaseVoltage / frame->Et);
+    nl->I2 = windingPhaseCurrent(in->KVA, in->LV, in->Ph, in->lvConnection);
+    nl->Iw = frame->Pi * 1000.0 / (in->Ph * lvPhaseVoltage);
+    nl->Im = in->excitationBuildFactor * nl->ATpPh / (sqrt(2.0) * nl->T2);
+    nl->I0 = sqrt(nl->Iw * nl->Iw + nl->Im * nl->Im);
+    nl->I0byI2 = nl->I0 / nl->I2 * 100.0;
 }

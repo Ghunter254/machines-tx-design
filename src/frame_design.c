@@ -1,37 +1,45 @@
-#include "../include/transformer_design.h"
-#include <stdio.h>
+#include "../include/frame_design.h"
+
 #include <math.h>
 
-static void calculateCoreCrossSection(Transformer *tx);
-static void calculateWindowDimensions(Transformer *tx);
-static void calculateYokeDimensions(Transformer *tx);
-static void  calculateIronLosses(Transformer *tx);
-
+static double roundUp(double value, double step)
+{
+    return step > 0.0 ? ceil((value - 1e-12) / step) * step : value;
+}
 
 void designFrame(Transformer *tx)
 {
-    calculateCoreCrossSection(tx);
-    calculateWindowDimensions(tx);
-    calculateYokeDimensions(tx);
-    calculateIronLosses(tx);
+    DesignInputs *in = &tx->input;
+    MagneticFrame *frame = &tx->magneticFrame;
 
-    printf("Magnetic frame design completed successfully.\n");
-}
+    frame->Et = in->K * sqrt(in->KVA / in->Ph);
+    frame->Ai = frame->Et / (4.44 * in->f * in->Bm);
+    frame->d = roundUp(sqrt(frame->Ai / in->k), in->dimensionRoundingM);
+    frame->Ai = in->k * frame->d * frame->d;
+    frame->Et = 4.44 * in->f * in->Bm * frame->Ai;
 
-static void calculateCoreCrossSection(Transformer *tx) 
-{
-    tx->magneticFrame.Ai = (tx->magneticFrame.Et / (4.44 * tx->input.f * tx->input.Bm ));
-    tx->magneticFrame.d = sqrt(tx->magneticFrame.Ai / tx->input.k);
-    tx->magneticFrame.Ai = tx->input.k * (tx->magneticFrame.d * tx->magneticFrame.d);
-    tx->magneticFrame.Et = 4.44 * tx->input.f * tx->input.Bm * tx->magneticFrame.Ai;
+    frame->kw = (10.0 / (30.0 + in->HV / 1000.0)) * in->windowSpaceMultiplier;
+    frame->Aw = (in->KVA * 1000.0) /
+        (3.33 * in->f * in->Bm * frame->kw * in->cdav * 1e6 * frame->Ai);
+    frame->L = roundUp(sqrt(in->windowAspectRatio * frame->Aw), in->dimensionRoundingM);
+    frame->D = roundUp(frame->Aw / frame->L + frame->d, in->dimensionRoundingM);
+    frame->windowRatio = frame->L / (frame->D - frame->d);
 
-}
+    frame->W = roundUp(2.0 * frame->D + in->yokeWidthFactor * frame->d,
+                       in->dimensionRoundingM);
+    frame->Ac = frame->Ai / in->ki;
+    frame->Ay = in->yokeAreaFactor * frame->Ac;
+    frame->by = in->yokeWidthFactor * frame->d;
+    frame->hy = frame->Ay / frame->by;
+    frame->By = (frame->Ac / frame->Ay) * in->Bm;
 
-static void calculateWindowDimensions(Transformer *tx) 
-{
-    tx->input.kw = 10 / (30 + tx->input.KVA / 1000);
-    tx->magneticFrame.Aw = (tx->input.KVA * 1000) / (3.33 * tx->input.f * tx->input.Bm * tx->input.kw * tx->input.kw * tx->input.cdav * 10e6 * tx->magneticFrame.Ai);
-    tx->magneticFrame.L = tx->magneticFrame.Aw / (tx->magneticFrame.D - tx->magneticFrame.d);
-    tx->magneticFrame.D = (tx->magneticFrame.Aw/ tx->magneticFrame.L) + tx->magneticFrame.d ;
-
+    frame->WpKgC = in->coreLossReferenceWKg *
+        pow(in->Bm / in->coreLossReferenceFluxT, in->lossCurveExponent);
+    frame->WpKgY = in->yokeLossReferenceWKg *
+        pow(frame->By / in->yokeLossReferenceFluxT, in->lossCurveExponent);
+    frame->KgC = in->Ph * frame->Ac * frame->L * in->density_fe;
+    frame->PiC = frame->WpKgC * frame->KgC;
+    frame->KgY = 2.0 * frame->Ay * frame->W * in->density_fe;
+    frame->PiY = frame->WpKgY * frame->KgY;
+    frame->Pi = in->ironLossBuildFactor * (frame->PiC + frame->PiY) / 1000.0;
 }

@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: tx-c-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: CORS_ORIGIN
+        sync: false

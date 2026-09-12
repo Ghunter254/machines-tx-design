@@ -1,0 +1,6 @@
+build/
+data/output.txt
+data/output.json
+data/runs/
+node_modules/
+tmp/

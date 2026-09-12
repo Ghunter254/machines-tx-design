@@ -1,125 +1,193 @@
-APPARENT_POWER=630
-HV_VOLTAGE=11000
-LV_VOLTAGE=415
-PHASES=3
-FREQUENCY=50
-TARGET_TEMP_RISE=50
-COPPER_DENSITY=8960
-STEEL_DENSITY=7850
-OIL_DENSITY=860
-CORE_STEP_FACTOR=0.6
-EMF_VALUE_FACTOR=0.6
-WINDOW_SPACE_FACTOR=0.314
-IRON_STACKING_FACTOR=0.9
-VOLTS_PER_TURN=8.7
-CORE_FLUX_DENSITY=1.6
-YOKE_FLUX_DENSITY=1.33
-AVERAGE_CURRENT_DENSITY=2.6
-CORE_NET_AREA=0.0245
-CORE_GROSS_AREA=0.0272
-CORE_LIMB_DIAMETER=0.202
-CORE_LIMB_LENGTH=0.609
-CORE_CENTER_DISTANCE=0.405
-WINDOW_AREA=0.1232
-YOKE_LENGTH=0.992
-YOKE_GROSS_AREA=0.0327
-YOKE_WIDTH=0.182
-YOKE_HEIGHT=0.18
-CORE_LOSS_PER_KG=1.4
-YOKE_LOSS_PER_KG=1.02
-CORE_WEIGHT=343
-YOKE_WEIGHT=446
-CORE_IRON_LOSS=480.2
-YOKE_IRON_LOSS=446
-TOTAL_IRON_LOSS_KW=0.926
-CORE_AT_PER_METER=200
-YOKE_AT_PER_METER=110
-CORE_TOTAL_AT=365.4
-YOKE_TOTAL_AT=218.24
-TOTAL_AT_PER_PHASE=194.55
-LV_TURNS_REF=28
-LV_PHASE_CURRENT=876.46
-WATTFUL_CURRENT=1.29
-MAGNETIZING_CURRENT=5.65
-NO_LOAD_CURRENT=5.8
-NO_LOAD_CURRENT_RATIO=0.6618
-LV_AVAILABLE_HEIGHT=487.2
-LV_TURNS=28
-LV_TURNS_RADIALLY=7
-LV_TURNS_AXIALLY=4
-LV_PARALLEL_STRANDS=18
-LV_AXIAL_STRANDS=6
-LV_RADIAL_STRANDS=3
-LV_SPACE_PER_TURN=121.8
-LV_STRAND_WIDTH_BARE=20
-LV_STRAND_THICKNESS_BARE=1
-LV_SPACE_OCCUPIED_AXIALLY=597.6
-LV_AXIAL_SLACK=11.4
-LV_CONDUCTOR_AREA=349.272
-LV_CURRENT_DENSITY=2.51
-LV_RADIAL_WIDTH=31.2
-LV_INNER_DIAMETER=228
-LV_OUTER_DIAMETER=290.4
-LV_MEAN_TURN_LENGTH=0.8143
-LV_RESISTANCE_PER_PHASE=1.123
-LV_COPPER_LOSS=2.588
-LV_CONDUCTOR_LENGTH=22.8004
-LV_VOLUME=0.007963
-LV_WEIGHT=71.353
-HV_AVAILABLE_HEIGHT=426.3
-HV_TURNS=1286
-HV_TURNS_AXIALLY=12
-HV_AXIAL_STRANDS=4
-HV_RADIAL_STRANDS=28
-HV_SPACE_PER_TURN=35.525
-HV_STRAND_WIDTH_BARE=8
-HV_STRAND_THICKNESS_BARE=1
-HV_SPACE_OCCUPIED_AXIALLY=599.2
-HV_AXIAL_SLACK=9.8
-HV_CONDUCTOR_AREA=7.84
-HV_CURRENT_DENSITY=2.44
-HV_RADIAL_WIDTH=39.2
-HV_INNER_DIAMETER=322.4
-HV_OUTER_DIAMETER=400.8
-HV_MEAN_TURN_LENGTH=1.136
-HV_COPPER_LOSS=4.075
-HV_RESISTANCE_PER_PHASE=3.727
-HV_CONDUCTOR_LENGTH=1460.9
-HV_VOLUME=0.01145
-HV_WEIGHT=102.6
-COPPER_LOSS=6.9962
-TOTAL_LOSS=7.9222
-MAX_EFFICIENCY_LOAD=229.2
-MAX_EFFICIENCY=99.06
-MEAN_TURN_LENGTH=0.9752
-COIL_LENGTH=0.5992
-AMPERE_TURNS_PER_PHASE=24551
-ER=0.0111
-EX=0.0716
-EZ=0.0725
-REG85=0.0472
-REGUPF=0.0111
-CLEARANCE_LENGTH=0.14
-CLEARANCE_WIDTH=0.18
-CLEARANCE_HEIGHT=0.5
-TUBE_DIAMETER=0.05
-TUBE_HEIGHT=1.25
-TANK_LENGTH=1.3508
-TANK_WIDTH=0.5808
-TANK_HEIGHT=1.469
-TANK_VOLUME=1.1525
-SURFACE_AREA=5.67504
-TEMPERATURE_RISE=111.678
-PERMISSIBLE_TEMP_RISE=50
-TUBE_AREA=0.19635
-REQUIRED_AREA=9.97219
-COOLING_TUBES=51
-HV_COPPER_WEIGHT=102.6
-LV_COPPER_WEIGHT=71.353
-TOTAL_IRON_WEIGHT=789
-TOTAL_WEIGHT=972.583
-SPECIFIC_WEIGHT=1.54378
-STEEL_WEIGHT=356.393
-OIL_VOLUME=1.03257
-OIL_WEIGHT=888.013
-SHIPPING_WEIGHT=2216.99
+TRANSFORMER DESIGN SIMULATION REPORT
+====================================
+
+Run mode          : nominal
+Requested sections: frame, no-load, lv, hv, performance, tank
+Calculated chain  : frame, no-load, lv, hv, performance, tank
+Rating            : 630.0 kVA, 11000 / 415 V, 50 Hz, 3 phase
+Connection        : Delta-Star (Dy11)
+Cooling           : ONAN
+Reference temp.   : 75.0 C for winding-loss comparison
+
+1. MAGNETIC FRAME
+-----------------
+Volts per turn       Et = K*sqrt(kVA/ph)                       8.6961 V/turn
+Net core area        Ai = Et/(4.44*f*Bm)                    0.024482 m2
+Gross core area      Ac = Ai/ki                             0.027203 m2
+Core diameter        d  = sqrt(Ai/k)                          0.2020 m
+Window space factor  kw = 10/(30+HV[kV])*multiplier           0.2805
+Window area          Aw                                     0.132454 m2
+Core/window height   L                                        0.6310 m
+Core-centre distance D                                        0.4120 m
+Window proportion    L/(D-d)                                  3.0048
+Yoke length          W = 2D + yoke-width-factor*d             1.0060 m
+Yoke gross area      Ay                                     0.031283 m2
+Yoke width / height  by / hy                            0.1818 / 0.1721 m
+Core flux density    Bm                                       1.6000 T
+Yoke flux density    By                                       1.3913 T
+Specific core/yoke loss                              1.4000 / 1.1162 W/kg
+Core / yoke mass                                      404.23 / 494.09 kg
+Core / yoke iron loss                                565.93 / 551.50 W
+Total iron mass                                              898.32 kg
+Total iron volume                                          0.114436 m3
+Iron loss            Pi                                        1.117 kW
+
+2. NO-LOAD CURRENT
+------------------
+LV phase voltage                                             239.600 V
+LV turns             T2 = ceil(Vphase/Et)                         28 turns
+LV phase current                                              876.459 A
+Core/yoke AT per m   atC / atY                           200.00 / 110.00 AT/m
+Core/yoke AT         ATC / ATY                           378.60 / 221.32 AT
+Total AT per phase   (ATC+ATY)/ph                           199.973 AT
+Wattful component    Iw                                       1.5546 A
+Magnetizing component Im                                      5.8076 A
+No-load current      I0 = sqrt(Iw2+Im2)                       6.0121 A
+No-load ratio        I0/I2                                    0.6859 %
+
+3. LOW-VOLTAGE WINDING
+----------------------
+Turns / phase current                                       28 / 876.459 A
+LV phase voltage                                             239.600 V
+Available winding height                                      504.80 mm
+Turns radial / axial                                         7 / 4
+Conductor arrangement                       18 parallel, 3 x 6 strands
+Space per turn       ALT                                      126.20 mm
+Bare strand size                                      20.00 x 1.00 mm
+Conductor area / density                         349.272 mm2 / 2.509 A/mm2
+Active / total axial height                        497.60 / 597.60 mm
+Axial slack                                                  33.40 mm
+Radial width                                                 31.20 mm
+Inner / outer diameter                            228.00 mm / 290.40 mm
+Mean turn / conductor length                       0.814301 / 22.800423 m
+Copper volume / mass                              0.00796355 m3 / 71.353 kg
+Resistance at 20 C / 75 C                       0.001125 / 0.001368 ohm
+Copper loss at 20 C / 75 C                        2.5936 / 3.1530 kW
+
+4. HIGH-VOLTAGE WINDING
+-----------------------
+Turns / phase current                                     1286 / 19.091 A
+HV phase voltage                                           11000.000 V
+Available winding height                                      441.70 mm
+Coils / axial x radial strands                  12 / 4 x 28
+Coil layout                              112 middle turns, 83.0 end turns
+Space per coil      ALT                                        36.81 mm
+Bare conductor / area                        8.00 x 1.00 mm / 7.840 mm2
+Current density                                              2.435 A/mm2
+Active / total axial height                        469.20 / 599.20 mm
+Axial slack                                                  31.80 mm
+Radial width                                                 39.20 mm
+Inner / outer diameter                            322.40 mm / 400.80 mm
+Adjacent winding clearance                                   11.20 mm
+Mean turn / conductor length                       1.136000 / 1460.895876 m
+Copper volume / mass                              0.01145342 m3 / 102.623 kg
+Resistance at 20 C / 75 C                       3.212480 / 3.905368 ohm
+Copper loss at 20 C / 75 C                        3.5125 / 4.2701 kW
+
+5. PERFORMANCE
+--------------
+LV / HV copper loss at 20 C                      2.594 / 3.512 kW
+LV / HV copper loss at 75 C                    3.153 / 4.270 kW
+Total copper loss at 20 C / 75 C                6.411 / 7.794 kW
+Iron / load / total loss                      1.117 / 7.794 / 8.912 kW
+Full-load efficiency at unity PF                             98.605 %
+Maximum efficiency / load                          98.910 % / 238.54 kVA
+Mean turn / active coil length                       0.97515 / 0.46920 m
+HV ampere-turns per phase                                 24550.91 AT
+Resistance / reactance / impedance             1.237 / 9.142 / 9.225 %
+Regulation at 0.85 PF / unity PF                   5.867 / 1.237 %
+
+  PF      load pu      loss kW      output kW      efficiency
+  1.00       1.00           8.912          630.00          98.605 %
+  0.85       1.00           8.912          535.50          98.363 %
+  0.85       0.75           5.502          401.62          98.649 %
+  0.85       0.50           3.066          267.75          98.868 %
+
+6. TANK, COOLING AND MASS
+-------------------------
+Tank dimensions L x W x H                     1.365 x 0.581 x 1.475 m
+Configured clearances L x W x H              0.140 x 0.180 x 0.500 m
+Tank volume / plain surface                       1.169 m3 / 5.740 m2
+Plain tank rise / cooled rise                     124.20 C / 49.90 C
+Tube diameter / height                            0.050 / 1.250 m
+Area per tube / required area                     0.196 / 12.135 m2
+Cooling tube count                                                 62
+Active / shipping mass                            1083.02 / 2433.56 kg
+Oil volume / oil mass                             1.035 m3 / 890.50 kg
+Specific active mass                                  1.719 kg/kVA
+
+BILL OF MATERIALS
+-----------------
+HV copper                                                 102.62 kg
+LV copper                                                  71.35 kg
+Active core steel                                         898.32 kg
+Fabricated tank steel                                     460.04 kg
+Insulating oil                                            890.50 kg
+Material cost index                                     4990.33
+
+ENGINEERING ASSESSMENT
+----------------------
+Status  Metric                              Result         Expected / benchmark
+PASS    Core window proportion                 3.005 ratio    2.500 to 4.000
+        Meaning: L/(D-d) checks whether the magnetic window is sensibly proportioned.
+        Verdict: Inside the 2.5 to 4.0 design band.
+        Basis:   Academic design rule
+PASS    No-load current                        0.686 %        0.500 to 1.000
+        Meaning: Excitation current as a percentage of rated LV phase current.
+        Verdict: Inside the textbook 0.5 to 1.0 percent band.
+        Basis:   Academic design rule
+PASS    LV current density                     2.509 A/mm2    2.300 to 3.500
+        Meaning: Copper loading determines conductor heating and material use.
+        Verdict: Within the selected transformer-design band.
+        Basis:   Academic design rule
+PASS    LV axial slack                        33.400 mm       >= 7.000
+        Meaning: Remaining axial allowance for insulation and assembly tolerance.
+        Verdict: At least 7 mm remains.
+        Basis:   Academic design rule
+PASS    HV current density                     2.435 A/mm2    2.300 to 3.500
+        Meaning: Copper loading determines conductor heating and material use.
+        Verdict: Within the selected transformer-design band.
+        Basis:   Academic design rule
+PASS    HV axial slack                        31.800 mm       >= 7.000
+        Meaning: Remaining height after coils, end ring and insulation are placed.
+        Verdict: At least 7 mm remains.
+        Basis:   Academic design rule
+FAIL    Adjacent HV winding clearance         11.200 mm       >= 15.000
+        Meaning: Clearance between adjacent HV winding envelopes on neighbouring limbs.
+        Verdict: Winding envelopes are too close.
+        Basis:   Academic design rule
+FAIL    No-load loss vs local benchmark     1117.429 W        <= 680.000
+        Meaning: Core loss compared with the interpolated 11/0.420 kV utility benchmark.
+        Verdict: Above the local benchmark; improve core material or flux selection.
+        Basis:   Kenya Power 2025, Table 6
+FAIL    Load loss at reference temperature  7794.230 W        <= 5600.000
+        Meaning: Copper and stray loss corrected to the configured reference temperature.
+        Verdict: Above the local benchmark; review conductor area and current density.
+        Basis:   Kenya Power 2025, Table 6
+FAIL    Total loss vs local benchmark       8911.659 W        <= 6280.000
+        Meaning: Full-load loss at unity power factor, compared with the local rating curve.
+        Verdict: Does not meet the local total-loss benchmark.
+        Basis:   Kenya Power 2025, Table 5
+FAIL    Short-circuit impedance                9.225 %        3.600 to 4.400
+        Meaning: Impedance affects fault current and voltage regulation.
+        Verdict: Calculated 9.23% against a 4.00% local benchmark target.
+        Basis:   Kenya Power 2025, Table 5
+INFO    Full-load efficiency at unity PF      98.605 %        <= 100.000
+        Meaning: Useful output divided by electrical input at rated load.
+        Verdict: Higher is better; loss limits provide the formal local comparison.
+        Basis:   Calculated result
+PASS    Calculated oil temperature rise       49.904 C        <= 50.000
+        Meaning: Estimated steady rise after the calculated cooling tubes are included.
+        Verdict: Cooling area holds the estimate within the target.
+        Basis:   Configured thermal target / IEC 60076-2 context
+PASS    Usable oil volume                      1.035 m3       >= 0.000
+        Meaning: Tank volume remaining after active-material displacement.
+        Verdict: Positive oil volume is available.
+        Basis:   Calculated geometry
+
+NOTES
+-----
+- Local loss values are interpolated from Kenya Power's 2025 11/0.420 kV tables.
+- The project LV rating is configurable and may differ slightly from the 420 V benchmark.
+- This analytical model supports design comparison; type tests and detailed mechanical,
+  dielectric, short-circuit and thermal verification remain necessary before manufacture.

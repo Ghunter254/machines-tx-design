@@ -4,9 +4,7 @@
 #include "transformer_design.h"
 
 
-void designHVWindings(
-    Transformer *tx
-);
+void designHVWindings(Transformer *tx);
 
 
 

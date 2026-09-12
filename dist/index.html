@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080a10">
+  <meta name="description" content="Interactive transformer design calculations powered by the TX-C simulation engine.">
+  <title>TX-C Transformer Studio</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23080a10'/%3E%3Cpath d='M15 20h34M32 20v27M22 47h20' stroke='%2379a8ff' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="app-bar">
+    <a class="brand" href="#/" aria-label="TX-C dashboard">
+      <span class="brand-mark">TX</span>
+      <span><strong>Transformer Studio</strong><small>C-powered design model</small></span>
+    </a>
+
+    <div class="mode-switch" role="group" aria-label="Simulation mode">
+      <button type="button" data-mode="nominal" aria-pressed="true">Nominal</button>
+      <button type="button" data-mode="explore" aria-pressed="false">Explore</button>
+      <button type="button" data-mode="optimize" aria-pressed="false">Optimal</button>
+    </div>
+
+    <div class="bar-actions">
+      <span class="engine-pill"><i id="engineDot"></i><span id="engineStatus">Checking engine</span></span>
+      <a id="configButton" class="soft-button" href="#/configure">Configure</a>
+      <button id="runButton" class="run-button" type="button"><span id="runLabel">Run design</span><span>↗</span></button>
+    </div>
+  </header>
+
+  <div id="errorToast" class="toast" role="alert" hidden></div>
+
+  <main class="site-main">
+    <section id="dashboardView" class="dashboard-view">
+      <header class="design-header">
+        <div>
+          <p id="designKicker" class="kicker">CURRENT DESIGN</p>
+          <h1 id="designTitle">Transformer design</h1>
+          <p id="designSubtitle">Loading the latest C simulation result…</p>
+        </div>
+        <div class="design-status">
+          <span id="runStateLabel">Calculation state</span>
+          <strong id="runStateTitle">Loading results</strong>
+          <small id="lastRun">No run in this session</small>
+        </div>
+      </header>
+
+      <div class="dashboard-context">
+        <div><span>Test configuration</span><strong id="scenarioTitle">Manual input</strong></div>
+        <p id="scenarioSummary">Inputs are controlled directly from the configuration page.</p>
+        <div class="report-links"><a href="/api/output.txt" target="_blank" rel="noreferrer">Text report</a><a href="/api/output.json" target="_blank" rel="noreferrer">JSON</a></div>
+      </div>
+
+      <section id="heroMetrics" class="hero-metrics" aria-label="Transformer summary"></section>
+
+      <div class="section-intro">
+        <div><p class="kicker">CALCULATION CHAIN</p><h2>Open a design section</h2></div>
+        <p>Every section contains its equations, actual substitutions, complete result set and engineering judgment.</p>
+      </div>
+      <section id="sectionGrid" class="section-grid"></section>
+
+      <section class="review-card">
+        <header><div><p class="kicker">ENGINEERING REVIEW</p><h2>Design checks</h2></div><strong id="reviewScore">—</strong></header>
+        <div id="reviewSummary" class="review-summary"></div>
+      </section>
+
+      <section id="optimizationSection" class="review-card" hidden>
+        <header><div><p class="kicker">DESIGN SEARCH</p><h2>Pareto candidates</h2></div><strong id="candidateCount">—</strong></header>
+        <div id="optimizationResults" class="candidate-grid"></div>
+      </section>
+    </section>
+
+    <section id="detailView" class="detail-view" hidden>
+      <a class="back-link" href="#/">← All sections</a>
+      <header id="detailHero" class="detail-hero">
+        <div class="detail-heading"><p id="detailKicker" class="kicker"></p><h1 id="detailTitle"></h1><p id="detailSubtitle"></p></div>
+        <div id="detailHeroMetrics" class="detail-hero-metrics"></div>
+      </header>
+
+      <section class="deck-shell" aria-label="Calculation presentation">
+        <header class="deck-header">
+          <div><span id="slideSource"></span><strong id="slideCount"></strong></div>
+          <div class="deck-controls"><button id="prevSlide" type="button" aria-label="Previous calculation">←</button><button id="nextSlide" type="button" aria-label="Next calculation">→</button></div>
+        </header>
+        <article id="formulaSlide" class="formula-slide" aria-live="polite"></article>
+        <nav id="slideDots" class="slide-dots" aria-label="Calculation steps"></nav>
+      </section>
+
+      <section id="performanceCases" class="results-card" hidden>
+        <header><div><p class="kicker">OPERATING POINTS</p><h2>Efficiency cases</h2></div></header>
+        <div class="table-wrap"><table><thead><tr><th>Power factor</th><th>Load</th><th>Loss</th><th>Output</th><th>Input</th><th>Efficiency</th></tr></thead><tbody id="caseRows"></tbody></table></div>
+      </section>
+
+      <section class="results-card">
+        <header><div><p class="kicker">COMPLETE OUTPUT</p><h2>Every calculated value</h2></div><span id="outputCount"></span></header>
+        <div id="allOutputs" class="all-outputs"></div>
+      </section>
+
+      <section class="results-card">
+        <header><div><p class="kicker">ASSESSMENT</p><h2>Checks for this section</h2></div></header>
+        <div id="sectionChecks" class="section-checks"></div>
+      </section>
+    </section>
+
+    <section id="configView" class="config-view" hidden>
+      <a class="back-link" href="#/">← Dashboard</a>
+      <header class="config-header"><div><p class="kicker">SIMULATION INPUT</p><h1>Configure the design</h1><p>Only entered assumptions live here. Every derived value is calculated by the C engine.</p></div><button id="configRunButton" class="run-button" type="button">Save &amp; run <span>↗</span></button></header>
+
+      <div class="config-layout">
+        <section class="config-card config-wide">
+          <div class="config-card-head"><span>01</span><div><h2>Test configuration</h2><p>Apply a prepared comparison or keep direct control.</p></div></div>
+          <label class="field"><span>Configuration</span><select id="scenario"></select></label>
+          <div class="scenario-expect"><strong id="scenarioNote">Manual input</strong><p id="scenarioExpect"></p></div>
+        </section>
+
+        <section class="config-card">
+          <div class="config-card-head"><span>02</span><div><h2>Nameplate</h2><p>Rating and electrical system.</p></div></div>
+          <div class="field-grid">
+            <label class="field"><span>Rating <small>kVA</small></span><input id="kva" type="number" min="10" step="10" value="630"></label>
+            <label class="field"><span>Frequency <small>Hz</small></span><input id="freq" type="number" min="1" step="1" value="50"></label>
+            <label class="field"><span>HV line <small>V</small></span><input id="hv" type="number" min="100" step="100" value="11000"></label>
+            <label class="field"><span>LV line <small>V</small></span><input id="lv" type="number" min="10" step="5" value="415"></label>
+          </div>
+        </section>
+
+        <section class="config-card">
+          <div class="config-card-head"><span>03</span><div><h2>Connection</h2><p>Phase-voltage and current relationships.</p></div></div>
+          <div class="field-grid">
+            <label class="field"><span>HV winding</span><select id="hvConnection"><option value="delta">Delta</option><option value="star">Star</option></select></label>
+            <label class="field"><span>LV winding</span><select id="lvConnection"><option value="star">Star</option><option value="delta">Delta</option></select></label>
+          </div>
+          <label class="field"><span>Vector clock</span><select id="clock"><option value="11">11 · 330° displacement</option><option value="1">1 · 30° displacement</option><option value="0">0 · in phase</option></select></label>
+        </section>
+
+        <section class="config-card">
+          <div class="config-card-head"><span>04</span><div><h2>Design assumptions</h2><p>Magnetic and winding targets.</p></div></div>
+          <div class="field-grid">
+            <label class="field"><span>Flux density <small>T</small></span><input id="bm" type="number" min="0.5" step="0.05" value="1.6"></label>
+            <label class="field"><span>Current density <small>A/mm²</small></span><input id="cdav" type="number" min="0.5" step="0.1" value="2.6"></label>
+          </div>
+          <label class="field"><span>Window aspect ratio <small>H/W</small></span><input id="aspect" type="number" min="1" step="0.1" value="3.0"></label>
+          <label class="switch-field"><input id="autoSizing" type="checkbox"><span><strong>Automatic conductor sizing</strong><small>Let the model resize conductor thickness toward the current-density target.</small></span></label>
+        </section>
+
+        <section class="config-card">
+          <div class="config-card-head"><span>05</span><div><h2>Run scope</h2><p>Explore mode includes required prerequisites automatically.</p></div></div>
+          <div class="scope-grid">
+            <label><input type="checkbox" value="frame" checked><span>Magnetic frame</span></label>
+            <label><input type="checkbox" value="no-load" checked><span>No-load current</span></label>
+            <label><input type="checkbox" value="lv" checked><span>LV winding</span></label>
+            <label><input type="checkbox" value="hv" checked><span>HV winding</span></label>
+            <label><input type="checkbox" value="performance" checked><span>Performance</span></label>
+            <label><input type="checkbox" value="tank" checked><span>Tank &amp; cooling</span></label>
+          </div>
+        </section>
+
+        <section class="config-card">
+          <div class="config-card-head"><span>06</span><div><h2>Dashboard emphasis</h2><p>Choose which result family leads the dashboard.</p></div></div>
+          <label class="field"><span>Metric view</span><select id="metricView"></select></label>
+          <p id="metricNote" class="field-note"></p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer"><span>TX-C analytical design model</span><span>Textbook calculation basis · Local benchmark review · Verification required before manufacture</span></footer>
+
+  <script src="/scenarios.js"></script>
+  <script src="/presentation.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

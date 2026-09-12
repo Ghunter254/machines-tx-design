@@ -2,280 +2,163 @@
 #define TRANSFORMER_DESIGN_H
 
 #include <stdbool.h>
-#include <stddef.h>
+#include <stdio.h>
 
-#define TARGET_TEMP_RISE_C      50.0
+#define PERFORMANCE_CASES 4
+#define MAX_EVALUATIONS 24
+#define MAX_OPTIMIZATION_RESULTS 32
 
-#define OIL_DENSITY_KG_M3       860.0
-#define STEEL_DENSITY_KG_M3     7850.0
-#define COPPER_DENSITY_KG_M3    8960.0
-
-#define PLAIN_TANK_DISSIPATION  12.5
-#define TUBE_COEFFICIENT        6.5
-#define TUBE_EFFECTIVENESS      1.35
-
-#define PERFORMANCE_CASES       4
-
-#define RESET   "\x1b[0m"
-#define BOLD    "\x1b[1m"
-#define DIM     "\x1b[2m"
-
-#define FG_WHITE  "\x1b[97m"
-#define FG_CYAN   "\x1b[36m"
-#define FG_GREEN  "\x1b[32m"
-#define FG_YELLOW "\x1b[33m"
-
-#define INNER_W   58
-
-typedef enum
-{
-    FIELD_DOUBLE,
-    FIELD_INT
-} FieldType;
+typedef enum { CONNECTION_STAR = 0, CONNECTION_DELTA = 1 } ConnectionKind;
+typedef enum { RUN_NOMINAL = 0, RUN_EXPLORE = 1, RUN_OPTIMIZE = 2 } RunMode;
+typedef enum {
+    SECTION_FRAME = 1 << 0,
+    SECTION_NO_LOAD = 1 << 1,
+    SECTION_LV = 1 << 2,
+    SECTION_HV = 1 << 3,
+    SECTION_PERFORMANCE = 1 << 4,
+    SECTION_TANK = 1 << 5,
+    SECTION_ALL = (1 << 6) - 1
+} DesignSection;
+typedef enum { STATUS_PASS, STATUS_WARN, STATUS_FAIL, STATUS_INFO } EvaluationStatus;
 
 typedef struct
 {
-    const char *key;
-    size_t offset;
-    FieldType type;
-    const char *unit;
-} FieldEntry;
+    double KVA, HV, LV;
+    int Ph;
+    double f;
+    ConnectionKind hvConnection, lvConnection;
+    int vectorClock;
+    char cooling[12];
 
-typedef struct
-{
-    /* Transformer Rating */
-    double KVA;         /* Apparent Power (kVA) */
-    double HV;          /* High Voltage Rating (V) */
-    double LV;          /* Low Voltage Rating (V) */
-    double Ph;          /* Number of Phases */
-    double f;           /* Frequency (Hz) */
+    double TRP, referenceTemperatureC, ambientTemperatureC;
+    double density_cu, density_fe, density_oil;
+    double copperResistivity20, copperTemperatureConstant;
 
-    /* Design Requirements */
-    double TRP;         /* Target Permissible Temp Rise (°C) */
+    double k, K, Bm, cdav, ki, windowAspectRatio;
+    double yokeAreaFactor, yokeWidthFactor, windowSpaceMultiplier, dimensionRoundingM;
+    double coreLossReferenceFluxT, coreLossReferenceWKg;
+    double yokeLossReferenceFluxT, yokeLossReferenceWKg;
+    double lossCurveExponent, ironLossBuildFactor;
+    double coreATPerMeter, yokeATPerMeter, excitationBuildFactor;
 
-    /* Material Properties */
-    double density_cu;  /* Copper Density (kg/m³) */
-    double density_fe;  /* Steel Density (kg/m³) */
-    double density_oil; /* Oil Density (kg/m³) */
+    double conductorInsulationMm, copperStrayLossFactor;
 
-    /* Core Design Assumptions */
-    double k;           /* Core Stepping Factor */
-    double K;           /* Volts/Turn Value Factor */
-    double Bm;          /* Max Flux Density in Core (T) */
-    double cdav;        /* Average Current Density (A/mm²) */
-    double kw;          /* Window Space Factor */
-    double ki;          /* Iron Stacking Factor */
+    int lvTurnsRadially, lvParallelStrands, lvAxialStrands;
+    double lvStrandWidthMm, lvStrandThicknessMm, lvEdgeFactor, lvWindingHeightFraction;
+    double lvInterTurnInsulationMm, lvEndInsulationMm, lvRadialInsulationMm;
+    double coreToLvOilDuctMm, coreToLvCylinderMm, lvFormerToWindingDuctMm;
 
-    /* Cooling Tubes Assumptions */
-    double Dct;         /* Cooling Tube Diameter (m) */
-    double Hct;         /* Cooling Tube Height (m) */
+    int hvCoils, hvAxialStrands, hvRadialStrands;
+    double hvStrandWidthMm, hvStrandThicknessMm, hvEdgeFactor, hvWindingHeightFraction;
+    double hvInterCoilInsulationMm, hvEndRingMm, hvEndInsulationMm;
+    double lvToHvOilDuctMm, lvToHvCylinderMm, hvFormerToWindingDuctMm;
 
-    /* Tank Clearances Assumptions */
-    double dL;          /* Length-wise Clearance (m) */
-    double dB;          /* Width-wise Clearance (m) */
-    double dH;          /* Height-wise Clearance (m) */
+    double Dct, Hct, dL, dB, dH;
+    double plainTankDissipation, tubeCoefficient, tubeEffectiveness, tankPlateThicknessM;
+
+    double optimizerBmMin, optimizerBmMax;
+    double optimizerCurrentDensityMin, optimizerCurrentDensityMax;
+    double optimizerAspectRatioMin, optimizerAspectRatioMax;
+    double copperCostIndex, coreSteelCostIndex, tankSteelCostIndex, oilCostIndex;
+    bool automaticConductorSizing;
 } DesignInputs;
 
 typedef struct
 {
-    /* Electrical */
-    double Et;          /* Volts per Turn (V/turn) */
-
-    /* Core Geometry */
-    double Ai;          /* Net Core Cross-sectional Area (m²) */
-    double d;           /* Core Limb Diameter (m) */
-    double Ac;          /* Gross Core Cross-sectional Area (m²) */
-    double Aw;          /* Window Area (m²) */
-    double L;           /* Length of Core / Window Height (m) */
-    double D;           /* Distance Between Core Centres (m) */
-    double W;           /* Length of Yoke (m) */
-    double Ay;          /* Yoke Cross-sectional Area (m²) */
-    double by;          /* Width of Yoke (m) */
-    double hy;          /* Height of Yoke (m) */
-
-    /* Core Loss */
-    double WpKgC;       /* Core Loss per kg (W/kg) */
-    double KgC;         /* Core Weight (kg) */
-    double PiC;         /* Core Iron Loss (W) */
-
-    /* Yoke Loss */
-    double By;          /* Flux Density in Yoke (T) */
-    double WpKgY;       /* Yoke Loss per kg (W/kg) */
-    double KgY;         /* Yoke Weight (kg) */
-    double PiY;         /* Yoke Iron Loss (W) */
-
-    /* Final */
-    double Pi;          /* Total Iron Loss (kW) */
+    double Et, Ai, d, Ac, kw, Aw, L, D, windowRatio, W, Ay, by, hy;
+    double WpKgC, KgC, PiC, By, WpKgY, KgY, PiY, Pi;
 } MagneticFrame;
 
 typedef struct
 {
-    /* Magnetising Force */
-    double atC;         /* AT/m for Core Steel */
-    double atY;         /* AT/m for Yoke Steel */
-
-    /* Ampere Turns */
-    double ATC;         /* Total AT for Core */
-    double ATY;         /* Total AT for Yoke */
-    double ATpPh;       /* Total AT per Phase */
-
-    /* LV Side Reference */
-    double T2;          /* Number of LV Turns */
-    double I2;          /* LV Phase Current (A) */
-
-    /* No-Load Current Components */
-    double Iw;          /* Wattful Current (A) */
-    double Im;          /* Magnetising Current (A) */
-    double I0;          /* Total No-Load Current (A) */
-    double I0byI2;      /* No-Load Current Percentage (%) */
+    double atC, atY, ATC, ATY, ATpPh, T2, I2, Iw, Im, I0, I0byI2;
 } NoLoadCurrent;
 
 typedef struct
 {
-    /* Turns Layout */
-    double T;           /* Number of Turns (T1 or T2) */
-    double Tr;          /* Turns Radially (T2r or x2/cR) */
-    double Ta;          /* Turns Axially (T2a or T1a/AxC) */
-
-    /* Current & Area */
-    double I;           /* Phase Current (I1 or I2) (A) */
-    double a;           /* Conductor Cross-sectional Area (a1 or a2) (mm²) */
-    double cd;          /* Current Density (cdHV or cdLV) (A/mm²) */
-
-    /* Axial Space Available & Occupied */
-    double ALW;         /* Space Available for Turns (mm) */
-    double ALT;         /* Space Allocation per Turn (mm) */
-    double ALWx;        /* Total Space Occupied Axially (ALWx / AxLw) (mm) */
-    double SlkAx;       /* Axial Slack in Winding (SlkLVax / SlkHVax) (mm) */
-
-    /* Conductor Stranding */
-    double stP;         /* Parallel Strands */
-    double NstA;        /* Axial Strands (NstA or cA) */
-    double NstR;        /* Radial Strands (NstR or cR) */
-    double stW;         /* Bare Strand Width (mm) */
-    double stT;         /* Bare Strand Thickness (mm) */
-
-    /* Winding Structural Dimensions */
-    double rw;          /* Radial Width of Winding (rwLV / rwHV) (mm) */
-    double di;          /* Inner Diameter (di1 / di2) (mm) */
-    double do_;         /* Outer Diameter (do1 / do2) (mm) - do_ to avoid C keyword */
-    double Lmt;         /* Mean Turn Length (Lmt1 / Lmt2) (m) */
-
-    /* Copper Metrics & Extensions */
-    double Lcu;         /* Total Conductor Length (m) - Reporting Extension */
-    double Vcu;         /* Total Conductor Volume (m³) - Reporting Extension */
-    double Wcu;         /* Copper Weight (Wcu1 / Wcu2) (kg) */
-
-    /* Electrical Performance */
-    double r;           /* Resistance per Phase (r1 or r2) (Ω/mΩ) */
-    double pcu;         /* Copper Loss (pcu1 or pcu2) (kW) */
+    double phaseVoltage, T, Tr, Ta, middleCoilTurns, endCoilTurns;
+    double I, a, cd, ALW, ALT, activeAxialLength, ALWx, SlkAx;
+    double stP, NstA, NstR, stW, stT;
+    double rw, di, do_, Lmt, Lcu, Vcu, Wcu;
+    double r20, rReference, pcu20, pcuReference;
 } Winding;
 
 typedef struct
 {
-    double pf;          /* Power Factor */
-    double loadPU;      /* Load (Per Unit) */
-    double losses;      /* Total Loss at Load (kW) */
-    double output;      /* Output Power (kW) */
-    double input;       /* Input Power (kW) */
-    double efficiency;  /* Efficiency (%) */
+    double pf, loadPU, losses, output, input, efficiency;
 } PerformanceCase;
 
 typedef struct
 {
-    /* Total Losses */
-    double pcuT;        /* Total Winding Copper Loss (kW) */
-    double ptFL;        /* Total Full Load Loss (kW) */
-
-    /* Maximum Efficiency */
-    double Ldmxef;      /* Load at Maximum Efficiency (kVA) */
-    double efmx;        /* Maximum Efficiency (%) */
-
-    /* Reactance Parameters */
-    double Lmt;         /* Overall Mean Turn Length (m) */
-    double Lc;          /* Active Coil Length / Stack Height (m) */
-    double AT;          /* Ampere Turns per Phase */
-    double Er;          /* Per Unit Resistance (pu) */
-    double Ex;          /* Per Unit Reactance (pu) */
-    double Ez;          /* Per Unit Impedance (pu) */
-
-    /* Voltage Regulation */
-    double Reg85;       /* Regulation at 0.85 PF (pu) */
-    double RegUPF;      /* Regulation at Unity PF (pu) */
-
-    /* Tabulated Performance Cases */
+    double pcuT20, pcuT, ptFL, Ldmxef, efmx, Lmt, Lc, AT;
+    double Er, Ex, Ez, Reg85, RegUPF;
     PerformanceCase cases[PERFORMANCE_CASES];
 } Performance;
 
 typedef struct
 {
-    /* Clearances */
-    double dL;          /* Length-wise Clearance (m) */
-    double dB;          /* Width-wise Clearance (m) */
-    double dH;          /* Height-wise Clearance (m) */
-
-    /* Tank Dimensions */
-    double Lt;          /* Tank Length (m) */
-    double bt;          /* Tank Width (m) */
-    double ht;          /* Tank Height (m) */
-    double Vt;          /* Tank Volume (m³) */
-    double St;          /* Tank Cooling Surface Area (m²) */
-
-    /* Thermal Evaluation */
-    double Tr;          /* Tank Temperature Rise without Tubes (°C) */
-    double TRP;         /* Permissible Temperature Rise (°C) */
-
-    /* Cooling Tubes */
-    double Dct;         /* Cooling Tube Diameter (m) */
-    double Hct;         /* Cooling Tube Height (m) */
-    double At;          /* Area of One Cooling Tube (m²) */
-    double CAt;         /* Required Tube Cooling Area (m²) */
-    int    Nt;          /* Number of Cooling Tubes Required */
-
-    /* Phase 6 Component Weights Rollup */
-    double Wcu1;        /* HV Winding Copper Weight (kg) */
-    double Wcu2;        /* LV Winding Copper Weight (kg) */
-    double Wiron;       /* Total Iron Core Weight (kg) */
-
-    /* Final Weight Rollup */
-    double Wtot;        /* Total Transformer Weight (kg) */
-    double KgPkva;      /* Specific Weight (kg/kVA) */
+    double dL, dB, dH, Lt, bt, ht, Vt, St, Tr, TrWithTubes, TRP;
+    double Dct, Hct, At, CAt;
+    int Nt;
+    double Wcu1, Wcu2, Wiron, Wtot, KgPkva;
 } Tank;
 
 typedef struct
 {
-    double Wsteel;      /* Tank Steel Plate Weight (kg) - Reporting Extension */
-    double Voil;        /* Required Oil Volume (m³) - Reporting Extension */
-    double Woil;        /* Oil Weight (kg) - Reporting Extension */
-    double Wship;       /* Total Shipping Weight (kg) - Reporting Extension */
+    double Wsteel, Voil, Woil, Wship, materialCostIndex;
 } TankDerived;
 
 typedef struct
 {
-    DesignInputs    input;
-    MagneticFrame   magneticFrame;
-    NoLoadCurrent   noLoadCurrent;
-    Winding         lv;
-    Winding         hv;
-    Performance     performance;
-    Tank            tank;
-    TankDerived     tankDerived;
+    char id[40], label[72], unit[20], source[72], meaning[220], verdict[220];
+    double value, limitLow, limitHigh;
+    EvaluationStatus status;
+} Evaluation;
+
+typedef struct
+{
+    DesignInputs input;
+    MagneticFrame magneticFrame;
+    NoLoadCurrent noLoadCurrent;
+    Winding lv, hv;
+    Performance performance;
+    Tank tank;
+    TankDerived tankDerived;
+    Evaluation evaluations[MAX_EVALUATIONS];
+    int evaluationCount;
+    unsigned requestedSections, completedSections;
+    RunMode runMode;
 } Transformer;
 
+typedef struct
+{
+    double Bm, currentDensityTarget, windowAspectRatio;
+    double totalLossW, activeMassKg, materialCostIndex;
+    double efficiencyPercent, impedancePercent, temperatureRiseC;
+    int benchmarkPassCount;
+    double balanceScore;
+} OptimizationCandidate;
+
+typedef struct
+{
+    OptimizationCandidate candidates[MAX_OPTIMIZATION_RESULTS];
+    int count, feasibleDesigns, evaluatedDesigns, recommendedIndex;
+} OptimizationSet;
+
+const char *connectionName(ConnectionKind connection);
+const char *connectionShortName(ConnectionKind connection);
+int connectionFromString(const char *text, ConnectionKind *connection);
+const char *runModeName(RunMode mode);
+const char *statusName(EvaluationStatus status);
+double windingPhaseVoltage(double lineVoltage, ConnectionKind connection);
+double windingPhaseCurrent(double kva, double lineVoltage, int phases, ConnectionKind connection);
+
+int runSimulation(Transformer *tx, unsigned requestedSections);
+void evaluateTransformer(Transformer *tx);
+int runOptimization(const Transformer *baseline, OptimizationSet *set);
 void printTransformerResults(const Transformer *tx);
+int writeTextReport(const Transformer *tx, const OptimizationSet *optimization, const char *filename);
+int writeJsonReport(const Transformer *tx, const OptimizationSet *optimization, const char *filename);
+int writeJsonStream(const Transformer *tx, const OptimizationSet *optimization, FILE *stream);
 
-int tread(
-    Transformer *tx,
-    const char *filename,
-    const char **keys,
-    int nkeys
-);
-
-int twrite(
-    Transformer *tx,
-    const char *filename,
-    const char **keys,
-    int nkeys
-);
-
-#endif /* TRANSFORMER_DESIGN_H */
+#endif
