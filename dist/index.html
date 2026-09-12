@@ -24,6 +24,7 @@
 
     <div class="bar-actions">
       <span class="engine-pill"><i id="engineDot"></i><span id="engineStatus">Checking engine</span></span>
+      <button id="tutorialButton" class="help-button" type="button" aria-label="Open dashboard tutorial">?</button>
       <a id="configButton" class="soft-button" href="#/configure">Configure</a>
       <button id="runButton" class="run-button" type="button"><span id="runLabel">Run design</span><span>↗</span></button>
     </div>
@@ -47,10 +48,16 @@
       </header>
 
       <div class="dashboard-context">
-        <div><span>Test configuration</span><strong id="scenarioTitle">Manual input</strong></div>
+        <div><span id="contextLabel">Design setup</span><strong id="scenarioTitle">Configured design</strong></div>
         <p id="scenarioSummary">Inputs are controlled directly from the configuration page.</p>
         <div class="report-links"><a href="/api/output.txt" target="_blank" rel="noreferrer">Text report</a><a href="/api/output.json" target="_blank" rel="noreferrer">JSON</a></div>
       </div>
+
+      <section id="optimizationSection" class="optimization-card" hidden>
+        <header><div><p class="kicker">RECOMMENDED DESIGN</p><h2>Balanced Pareto candidate</h2></div><strong id="candidateCount">—</strong></header>
+        <div id="optimizationLead" class="optimization-lead"></div>
+        <div id="optimizationResults" class="candidate-grid"></div>
+      </section>
 
       <section id="heroMetrics" class="hero-metrics" aria-label="Transformer summary"></section>
 
@@ -65,10 +72,6 @@
         <div id="reviewSummary" class="review-summary"></div>
       </section>
 
-      <section id="optimizationSection" class="review-card" hidden>
-        <header><div><p class="kicker">DESIGN SEARCH</p><h2>Pareto candidates</h2></div><strong id="candidateCount">—</strong></header>
-        <div id="optimizationResults" class="candidate-grid"></div>
-      </section>
     </section>
 
     <section id="detailView" class="detail-view" hidden>
@@ -81,7 +84,7 @@
       <section class="deck-shell" aria-label="Calculation presentation">
         <header class="deck-header">
           <div><span id="slideSource"></span><strong id="slideCount"></strong></div>
-          <div class="deck-controls"><button id="prevSlide" type="button" aria-label="Previous calculation">←</button><button id="nextSlide" type="button" aria-label="Next calculation">→</button></div>
+          <div class="deck-controls"><button id="presentButton" class="present-button" type="button">Present <span>↗</span></button><button id="prevSlide" type="button" aria-label="Previous calculation">←</button><button id="nextSlide" type="button" aria-label="Next calculation">→</button></div>
         </header>
         <article id="formulaSlide" class="formula-slide" aria-live="polite"></article>
         <nav id="slideDots" class="slide-dots" aria-label="Calculation steps"></nav>
@@ -105,16 +108,39 @@
 
     <section id="configView" class="config-view" hidden>
       <a class="back-link" href="#/">← Dashboard</a>
-      <header class="config-header"><div><p class="kicker">SIMULATION INPUT</p><h1>Configure the design</h1><p>Only entered assumptions live here. Every derived value is calculated by the C engine.</p></div><button id="configRunButton" class="run-button" type="button">Save &amp; run <span>↗</span></button></header>
+      <header class="config-header"><div><p id="configKicker" class="kicker">NOMINAL INPUT</p><h1 id="configTitle">Set the reference design</h1><p id="configDescription">Review the rating and assumed design values used for the complete calculation.</p></div><button id="configRunButton" class="run-button" type="button"><span id="configRunLabel">Save &amp; run</span> <span>↗</span></button></header>
 
       <div class="config-layout">
-        <section class="config-card config-wide">
-          <div class="config-card-head"><span>01</span><div><h2>Test configuration</h2><p>Apply a prepared comparison or keep direct control.</p></div></div>
-          <label class="field"><span>Configuration</span><select id="scenario"></select></label>
-          <div class="scenario-expect"><strong id="scenarioNote">Manual input</strong><p id="scenarioExpect"></p></div>
+        <section id="exploreScope" class="config-card config-wide focus-config" data-config-modes="explore">
+          <div class="config-card-head"><span>01</span><div><h2>Choose the result you want</h2><p>Select one section or combine several. Required earlier calculations are included automatically.</p></div></div>
+          <div class="scope-grid scope-cards">
+            <label><input type="checkbox" value="frame"><span><strong>Magnetic frame</strong><small>Lenana · core, window and yoke</small></span></label>
+            <label><input type="checkbox" value="no-load"><span><strong>No-load current</strong><small>Natasha · excitation current</small></span></label>
+            <label><input type="checkbox" value="lv"><span><strong>LV winding</strong><small>Aitsa · conductor and losses</small></span></label>
+            <label><input type="checkbox" value="hv"><span><strong>HV winding</strong><small>Stephanie · discs and clearances</small></span></label>
+            <label><input type="checkbox" value="performance"><span><strong>Performance</strong><small>Hadassah · efficiency and regulation</small></span></label>
+            <label><input type="checkbox" value="tank"><span><strong>Tank &amp; cooling</strong><small>Yona · cooling and mass</small></span></label>
+          </div>
+          <p id="scopeSummary" class="selection-summary">Magnetic frame selected.</p>
         </section>
 
-        <section class="config-card">
+        <section class="config-card config-wide" data-config-modes="explore">
+          <div class="config-card-head"><span>02</span><div><h2>Optional experiment preset</h2><p>Start from the current values or apply a prepared comparison.</p></div></div>
+          <label class="field"><span>Starting point</span><select id="scenario"></select></label>
+          <div class="scenario-expect"><strong id="scenarioNote">Current design values</strong><p id="scenarioExpect"></p></div>
+        </section>
+
+        <section class="config-card config-wide focus-config" data-config-modes="optimize">
+          <div class="config-card-head"><span>01</span><div><h2>Set the design search</h2><p>The optimizer evaluates 294 combinations and balances loss, active mass and relative material cost.</p></div></div>
+          <div class="range-groups">
+            <fieldset><legend>Flux density <small>T</small></legend><div class="range-pair"><label class="field"><span>Minimum</span><input id="optBmMin" type="number" min="0.5" step="0.05" value="1.4"></label><label class="field"><span>Maximum</span><input id="optBmMax" type="number" min="0.5" step="0.05" value="1.7"></label></div></fieldset>
+            <fieldset><legend>Current density <small>A/mm²</small></legend><div class="range-pair"><label class="field"><span>Minimum</span><input id="optCdMin" type="number" min="0.5" step="0.1" value="2.3"></label><label class="field"><span>Maximum</span><input id="optCdMax" type="number" min="0.5" step="0.1" value="3.2"></label></div></fieldset>
+            <fieldset><legend>Window ratio <small>H/W</small></legend><div class="range-pair"><label class="field"><span>Minimum</span><input id="optAspectMin" type="number" min="1" step="0.1" value="2.5"></label><label class="field"><span>Maximum</span><input id="optAspectMax" type="number" min="1" step="0.1" value="4.0"></label></div></fieldset>
+          </div>
+          <div class="objective-note"><span>Balanced objective</span><p>Retains physically feasible Pareto candidates, then recommends the best normalized balance of loss, mass and material index.</p></div>
+        </section>
+
+        <section class="config-card" data-config-modes="nominal explore optimize">
           <div class="config-card-head"><span>02</span><div><h2>Nameplate</h2><p>Rating and electrical system.</p></div></div>
           <div class="field-grid">
             <label class="field"><span>Rating <small>kVA</small></span><input id="kva" type="number" min="10" step="10" value="630"></label>
@@ -124,7 +150,7 @@
           </div>
         </section>
 
-        <section class="config-card">
+        <section class="config-card" data-config-modes="nominal explore optimize">
           <div class="config-card-head"><span>03</span><div><h2>Connection</h2><p>Phase-voltage and current relationships.</p></div></div>
           <div class="field-grid">
             <label class="field"><span>HV winding</span><select id="hvConnection"><option value="delta">Delta</option><option value="star">Star</option></select></label>
@@ -133,7 +159,7 @@
           <label class="field"><span>Vector clock</span><select id="clock"><option value="11">11 · 330° displacement</option><option value="1">1 · 30° displacement</option><option value="0">0 · in phase</option></select></label>
         </section>
 
-        <section class="config-card">
+        <section class="config-card" data-config-modes="nominal explore">
           <div class="config-card-head"><span>04</span><div><h2>Design assumptions</h2><p>Magnetic and winding targets.</p></div></div>
           <div class="field-grid">
             <label class="field"><span>Flux density <small>T</small></span><input id="bm" type="number" min="0.5" step="0.05" value="1.6"></label>
@@ -143,19 +169,7 @@
           <label class="switch-field"><input id="autoSizing" type="checkbox"><span><strong>Automatic conductor sizing</strong><small>Let the model resize conductor thickness toward the current-density target.</small></span></label>
         </section>
 
-        <section class="config-card">
-          <div class="config-card-head"><span>05</span><div><h2>Run scope</h2><p>Explore mode includes required prerequisites automatically.</p></div></div>
-          <div class="scope-grid">
-            <label><input type="checkbox" value="frame" checked><span>Magnetic frame</span></label>
-            <label><input type="checkbox" value="no-load" checked><span>No-load current</span></label>
-            <label><input type="checkbox" value="lv" checked><span>LV winding</span></label>
-            <label><input type="checkbox" value="hv" checked><span>HV winding</span></label>
-            <label><input type="checkbox" value="performance" checked><span>Performance</span></label>
-            <label><input type="checkbox" value="tank" checked><span>Tank &amp; cooling</span></label>
-          </div>
-        </section>
-
-        <section class="config-card">
+        <section class="config-card" data-config-modes="nominal explore optimize">
           <div class="config-card-head"><span>06</span><div><h2>Dashboard emphasis</h2><p>Choose which result family leads the dashboard.</p></div></div>
           <label class="field"><span>Metric view</span><select id="metricView"></select></label>
           <p id="metricNote" class="field-note"></p>
@@ -165,6 +179,27 @@
   </main>
 
   <footer class="site-footer"><span>TX-C analytical design model</span><span>Textbook calculation basis · Local benchmark review · Verification required before manufacture</span></footer>
+
+  <section id="presentationMode" class="presentation-mode" role="dialog" aria-modal="true" aria-label="Calculation presentation" hidden>
+    <header class="presentation-header">
+      <div><p id="presentSectionMeta" class="kicker"></p><strong id="presentSectionTitle"></strong></div>
+      <div class="presentation-status"><span id="presentSlideCount"></span><button id="closePresentation" type="button" aria-label="Exit presentation">×</button></div>
+    </header>
+    <article id="presentSlide" class="present-slide" aria-live="polite"></article>
+    <footer class="presentation-footer">
+      <button id="presentPrev" type="button"><span>←</span><span id="presentPrevLabel">Previous</span></button>
+      <div id="presentProgress" class="present-progress" aria-hidden="true"></div>
+      <button id="presentNext" type="button"><span id="presentNextLabel">Next</span><span>→</span></button>
+    </footer>
+  </section>
+
+  <section id="tutorialOverlay" class="tutorial-overlay" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle" hidden>
+    <div class="tutorial-dialog">
+      <header><div class="tutorial-brand"><span class="brand-mark">TX</span><span id="tutorialStepLabel">QUICK START</span></div><button id="skipTutorial" type="button">Skip tutorial</button></header>
+      <div id="tutorialContent" class="tutorial-content"></div>
+      <footer><button id="tutorialPrev" class="soft-button" type="button">Back</button><div id="tutorialDots" class="tutorial-dots" aria-hidden="true"></div><button id="tutorialNext" class="run-button" type="button"><span>Next</span><span>→</span></button></footer>
+    </div>
+  </section>
 
   <script src="/scenarios.js"></script>
   <script src="/presentation.js"></script>

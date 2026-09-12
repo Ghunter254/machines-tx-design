@@ -14,17 +14,19 @@ npm start
 
 Open `http://127.0.0.1:5173` in a browser. Confirm that the control rail reports **C engine ready**.
 
-You only need to run `npm run build:c` after changing C source files. Pressing **Run simulation** does not compile the source again; it runs the existing executable with the current dashboard inputs and recalculates the outputs.
+You only need to run `npm run build:c` after changing C source files. Pressing **Run design** does not compile the source again; it runs the existing executable with the current dashboard inputs and recalculates the outputs.
 
 ## Using the controls
 
 1. Select a run mode.
-2. Choose one of the test configurations, or select **Manual input**.
-3. Open **Electrical configuration** or **Design assumptions** to change values.
-4. In Explore mode, open **Run scope** and select the sections you want to inspect.
-5. Choose the metric view that matches the question you are investigating.
-6. Press **Run simulation** or use `Ctrl+Enter`.
-7. Read the result chain first, then review the engineering checks and their verdicts.
+2. Open **Configure**. The page changes to match the selected mode.
+3. In Nominal, confirm the full reference-design inputs.
+4. In Explore, choose the result section first, then change an assumption or apply an optional experiment preset.
+5. In Optimal, set the permitted flux-density, current-density and window-ratio ranges.
+6. Choose the metric view that matches the question you are investigating.
+7. Press **Run design** or use `Ctrl+Enter`.
+8. Check the recalculation time and run identifier to confirm that fresh C results were returned.
+9. Open any completed section card to see its equations, substitutions, complete outputs and checks.
 
 The configuration note explains the expected direction of change for each preset. It is a hypothesis to compare against the calculated result, not a substitute for the calculation.
 
@@ -40,7 +42,22 @@ Allows any exposed input to be changed and any combination of result sections to
 
 ### Optimal
 
-Searches the configured design space, rejects infeasible candidates and returns a ranked Pareto candidate set. Review the recommended candidate together with the engineering checks; the lowest numerical score is not independent of design constraints.
+Searches the configured design space, rejects infeasible candidates and returns a ranked Pareto candidate set. The recommendation is displayed before the reference summary, with its change in loss and active mass. Choose **Explore this candidate** to copy its Bm, current-density and window-ratio values into Explore for a full calculation and presentation.
+
+## Tutorial and presentation mode
+
+The quick-start tutorial opens once in a new browser profile. Choose **Skip tutorial** at any time. The `?` control in the top bar opens it again.
+
+To present a calculation:
+
+1. Run the required section or the full design.
+2. Open a completed section card.
+3. Choose **Present**.
+4. Use the on-screen arrows, keyboard left/right arrows, or Space for the next slide.
+5. At the end of a section, Next continues to the next completed project section without leaving presentation mode.
+6. Press Escape or the × control to return to the detailed section page.
+
+The complete order is Lenana → Natasha → Aitsa → Stephanie → Hadassah → Yona. In a partial Explore run, the presentation follows only the completed prerequisite chain.
 
 ## Test configurations and metric views
 
