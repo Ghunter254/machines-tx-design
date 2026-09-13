@@ -124,7 +124,6 @@ int main(int argc, char **argv)
     if (mode == RUN_OPTIMIZE) {
         if (runOptimization(&tx, &optimization) != 0) {
             fprintf(stderr, "Optimization found no design satisfying the hard constraints.\n");
-            return EXIT_FAILURE;
         }
         optimizationPtr = &optimization;
     }

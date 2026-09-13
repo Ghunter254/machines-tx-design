@@ -39,3 +39,23 @@ build\txsim.exe --mode optimize --stdout-json
 ```
 
 The benchmark checks are local comparison aids, not type-test certification. Manufacturing release still requires dielectric, short-circuit, thermal and routine testing against the applicable IEC requirements.
+
+## Optimal comparison and presentation
+
+After a fresh Optimal run, the bottom of the optimal-results panel shows 15 evenly spaced search attempts with their original serial numbers. The four textbook-style selections use every feasible attempt, including variants outside the sample: maximum full-load efficiency at 0.85 PF, minimum active kg/kVA, minimum no-load current percentage, and minimum tank volume. Exact ties choose the earliest serial. The existing unity-PF efficiency metric remains separate.
+
+The balanced choice is ranked across the complete feasible Pareto set before retaining the best 32 results. It minimizes the equal-weight Euclidean distance of normalized loss, active mass and material cost index. Feasibility does not mean all Kenya Power benchmarks passed. Empty-feasible searches now return the sample and explicit missing recommendations instead of discarding the report.
+
+Use **Present comparison** for eight fullscreen slides: three five-row table pages, four priority recommendations, then the balanced choice. Arrow keys navigate; the comparison also follows Yona's last slide in the complete presentation. Exit or Finish returns to the results. The same sample and recommendations are included in JSON and text reports. Redeploy both the C backend and frontend, then run Optimal again; old saved reports do not contain these fields.
+
+The mass-based selections follow the existing C model. Its current active-mass and material-cost accounting adds one HV and one LV phase-winding mass to the core mass; the three-phase copper totals need a separate audit before treating these values as a physical bill of materials. This presentation update does not change that underlying accounting.
+
+Regression checks (after rebuilding C):
+
+```sh
+node scripts/verify-optimization.mjs
+node scripts/verify-formulas.mjs
+# Ubuntu/WSL: synthetic frontier, ties, infeasible and failed calculations
+gcc -std=c11 -Wall -Wextra -Wpedantic -Iinclude tests/optimizer-ranking.c src/optimizer.c -lm -o build/test-optimizer
+./build/test-optimizer
+```

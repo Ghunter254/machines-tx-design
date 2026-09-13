@@ -553,6 +553,61 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 .candidate-grid { margin-top: 10px; }
 .candidate-item.recommended { border-color: rgba(121,168,255,.32); background: rgba(121,168,255,.07); }
 
+/* Optimal search comparison: full table in results, five rows per presentation slide. */
+.optimization-comparison { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line); }
+.comparison-header { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+.comparison-note { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 16px 0; }
+.variant-table-wrap { min-width: 0; }
+.variant-table { font-variant-numeric: tabular-nums; }
+.variant-table th, .variant-table td { padding: 11px 9px; font-size: 13px; }
+.variant-table th:first-child { text-align: left; color: var(--text); }
+.variant-table small { display: block; font-size: 10px; line-height: 1.4; color: var(--muted); }
+.variant-table td:last-child { max-width: 175px; }
+.variant-table .variant-excluded { background: rgba(255,255,255,.018); }
+.variant-table tbody th { color: var(--blue-strong); }
+.criteria-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-top: 24px; }
+.criterion-card { padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: linear-gradient(140deg,rgba(132,168,240,.07),rgba(255,255,255,.018)); }
+.criterion-card h3, .balanced-summary h3 { margin: 0 0 15px; font-size: 22px; letter-spacing: -.025em; }
+.criterion-card h3 span { color: var(--blue-strong); }
+.criterion-value { font-size: 32px; font-weight: 620; letter-spacing: -.04em; }
+.criterion-value small { font-size: 14px; font-weight: 400; letter-spacing: 0; }
+.criterion-card p:not(.kicker), .criterion-card > small, .balanced-summary p:not(.kicker) { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.balanced-summary { margin-top: 24px; padding: 24px; border: 1px solid rgba(121,168,255,.25); border-radius: 22px; background: rgba(121,168,255,.05); }
+.balanced-summary dl { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 18px 0 0; }
+.balanced-summary dt { color: var(--muted); font-size: 11px; }
+.balanced-summary dd { margin: 6px 0 0; font-size: 20px; }
+.present-slide.optimal-slide { grid-template-rows: none; gap: clamp(8px,1.5vh,18px); }
+.optimal-slide h2 { font-size: clamp(1.5rem,3.5vw,3rem); line-height: 1.08; }
+.optimal-slide .kicker, .optimal-slide .comparison-note { margin: 0; }
+.optimal-slide .comparison-note { font-size: clamp(11px,1.15vw,15px); }
+.optimal-slide .variant-table th, .optimal-slide .variant-table td { padding: clamp(8px,1.7vh,18px) 8px; font-size: 16px; }
+.optimal-slide .criterion-card, .optimal-slide .balanced-summary { margin: 0; padding: clamp(16px,3vh,32px); }
+
+@media (max-width: 700px) {
+  .comparison-header { align-items: start; flex-direction: column; }
+  .criteria-grid { grid-template-columns: 1fr; }
+  .balanced-summary dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .variant-table { display: table; width: 100%; }
+  .variant-table thead { display: table-header-group; }
+  .variant-table tbody { display: table-row-group; }
+  .variant-table tr { display: table-row; }
+  .variant-table th, .variant-table td { display: table-cell; width: auto; padding: 9px 3px; font-size: 10px; }
+  .variant-table td::before { display: none; }
+  .variant-table .variant-input { display: none; }
+  .variant-table small { font-size: 8px; }
+  .variant-table td:last-child small { max-width: 66px; }
+  .optimal-slide .variant-table th, .optimal-slide .variant-table td { font-size: 10px; padding: 10px 3px; }
+  .optimal-slide .criterion-card h3, .optimal-slide .balanced-summary h3 { font-size: 20px; }
+}
+@media (max-height: 650px) {
+  .present-slide.optimal-slide { padding-top: 10px; padding-bottom: 10px; gap: 8px; }
+  .optimal-slide h2 { font-size: 26px; }
+  .optimal-slide .variant-table th, .optimal-slide .variant-table td { padding-top: 7px; padding-bottom: 7px; }
+  .optimal-slide .comparison-note { font-size: 11px; line-height: 1.35; }
+  .optimal-slide .criterion-card, .optimal-slide .balanced-summary { padding: 14px; }
+  .optimal-slide .criterion-value { font-size: 28px; }
+}
+
 /* Compact in-page calculation deck */
 .detail-hero { min-height: 310px; padding: clamp(28px,4vw,46px); }
 .deck-controls .present-button { display: flex; width: auto; padding: 0 16px; gap: 8px; border-radius: 999px; font-size: 12px; font-weight: 650; }

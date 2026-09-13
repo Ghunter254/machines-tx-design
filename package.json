@@ -7,6 +7,7 @@
     "build:c": "node scripts/build-c.mjs",
     "build:cad": "node scripts/build-cad.mjs",
     "verify:formulas": "node scripts/verify-formulas.mjs",
+    "verify:optimization": "node scripts/verify-optimization.mjs",
     "start": "node backend/server.mjs",
     "start:backend": "node backend/server.mjs"
   }

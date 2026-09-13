@@ -193,7 +193,7 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
         fprintf(out, "\nPARETO OPTIMIZATION\n-------------------\n");
         fprintf(out, "Evaluated %d designs; %d passed the hard geometry and thermal constraints.\n",
             optimization->evaluatedDesigns, optimization->feasibleDesigns);
-        fprintf(out, "The first row is the normalized knee-point recommendation.\n\n");
+        fprintf(out, "The first row has the smallest equal-weight normalized loss/mass/cost distance across all %d Pareto variants.\n\n", optimization->paretoCount);
         fprintf(out, "  Bm(T)   J(A/mm2)  window ratio  loss(W)  active kg  cost index  eff(%%)  Z(%%)\n");
         for (int i = 0; i < optimization->count; i++) {
             const OptimizationCandidate *c = &optimization->candidates[i];
@@ -202,6 +202,35 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
                 c->windowAspectRatio, c->totalLossW, c->activeMassKg, c->materialCostIndex,
                 c->efficiencyPercent, c->impedancePercent);
         }
+    }
+
+    if (optimization) {
+        fprintf(out, "\nOPTIMAL DESIGN COMPARISON - TEXTBOOK CRITERIA\n--------------------------------------------\n");
+        fprintf(out, "%d evenly spaced attempts from %d evaluated (%d feasible). Original serial numbers retained.\n",
+            optimization->sampleCount, optimization->evaluatedDesigns, optimization->feasibleDesigns);
+        fprintf(out, "Efficiency: full load, 0.85 PF, configured loss reference temperature. Mass: model active mass, excluding tank/oil.\n");
+        fprintf(out, " Sn   Bm(T)  J(A/mm2) H/W     eff(%%)    kg/kVA    I0/I2(%%)   tank(m3) Status\n");
+        for (int i = 0; i < optimization->sampleCount; i++) {
+            const OptimizationCandidate *c = &optimization->samples[i];
+            fprintf(out, "%3d   %.3f  %.3f    %.3f  ", c->serialNumber, c->Bm, c->currentDensityTarget, c->windowAspectRatio);
+            if (c->calculated) fprintf(out, "%8.4f  %8.4f  %8.4f   %8.4f ", c->comparisonEfficiencyPercent, c->specificMassKgKva, c->noLoadCurrentPercent, c->tankVolumeM3);
+            else fprintf(out, "       -         -         -          - ");
+            fprintf(out, "%s\n", c->feasible ? "FEASIBLE" : c->constraintFailures);
+        }
+        static const char *criteria[] = {"Maximum efficiency (full load, 0.85 PF)", "Minimum active kg/kVA", "Minimum I0/I2 (%)", "Minimum tank volume (m3)"};
+        fprintf(out, "\nSelections use ALL feasible attempts; exact ties choose the earliest serial.\n");
+        for (int i = 0; i < OPTIMIZATION_CRITERIA_COUNT; i++) {
+            const OptimizationCandidate *c = &optimization->criteriaWinners[i];
+            if (!c->serialNumber) { fprintf(out, "%s: no feasible variant.\n", criteria[i]); continue; }
+            double value = i == 0 ? c->comparisonEfficiencyPercent : i == 1 ? c->specificMassKgKva : i == 2 ? c->noLoadCurrentPercent : c->tankVolumeM3;
+            fprintf(out, "%s: select variant Sn %d (%.6f).\n", criteria[i], c->serialNumber, value);
+        }
+        if (optimization->recommendedIndex >= 0) {
+            const OptimizationCandidate *c = &optimization->candidates[optimization->recommendedIndex];
+            fprintf(out, "Balanced Pareto: select variant Sn %d (score %.6f; loss %.3f W, active mass %.3f kg, cost index %.3f).\n",
+                c->serialNumber, c->balanceScore, c->totalLossW, c->activeMassKg, c->materialCostIndex);
+        }
+        fprintf(out, "Feasible means the implemented hard constraints passed; local benchmark compliance is assessed separately.\n");
     }
 
     fprintf(out, "\nNOTES\n-----\n");
@@ -257,6 +286,21 @@ static void jsonSectionNames(FILE *out, unsigned sections)
         first = 0;
     }
     fputc(']', out);
+}
+
+static void jsonOptimizationCandidate(FILE *out, const OptimizationCandidate *c)
+{
+    fprintf(out, "{\"serialNumber\":%d,\"calculated\":%s,\"feasible\":%s,\"constraintFailures\":", c->serialNumber, c->calculated ? "true" : "false", c->feasible ? "true" : "false");
+    jsonString(out, c->constraintFailures);
+    fprintf(out, ",\"bm\":%.10g,\"currentDensityTarget\":%.10g,\"windowAspectRatio\":%.10g", c->Bm, c->currentDensityTarget, c->windowAspectRatio);
+    if (!c->calculated) {
+        fputs(",\"comparisonEfficiencyPercent\":null,\"specificMassKgKva\":null,\"noLoadCurrentPercent\":null,\"tankVolumeM3\":null}", out);
+        return;
+    }
+    fprintf(out, ",\"totalLossW\":%.10g,\"activeMassKg\":%.10g,\"materialCostIndex\":%.10g,\"efficiencyPercent\":%.10g,\"impedancePercent\":%.10g,\"temperatureRiseC\":%.10g,\"benchmarkPassCount\":%d,\"balanceScore\":%.10g,\"comparisonEfficiencyPercent\":%.10g,\"specificMassKgKva\":%.10g,\"noLoadCurrentPercent\":%.10g,\"tankVolumeM3\":%.10g}",
+        c->totalLossW, c->activeMassKg, c->materialCostIndex, c->efficiencyPercent,
+        c->impedancePercent, c->temperatureRiseC, c->benchmarkPassCount, c->balanceScore,
+        c->comparisonEfficiencyPercent, c->specificMassKgKva, c->noLoadCurrentPercent, c->tankVolumeM3);
 }
 
 int writeJsonStream(const Transformer *tx, const OptimizationSet *optimization, FILE *out)
@@ -392,19 +436,29 @@ int writeJsonStream(const Transformer *tx, const OptimizationSet *optimization, 
         fputc('}', out);
     }
     fprintf(out, "],\n  \"optimization\":");
-    if (!optimization || optimization->count == 0) {
+    if (!optimization) {
         fputs("null\n", out);
     } else {
-        fprintf(out, "{\"evaluatedDesigns\":%d,\"feasibleDesigns\":%d,\"recommendedIndex\":%d,\"candidates\":[",
-            optimization->evaluatedDesigns, optimization->feasibleDesigns, optimization->recommendedIndex);
+        fprintf(out, "{\"evaluatedDesigns\":%d,\"feasibleDesigns\":%d,\"paretoCount\":%d,\"recommendedIndex\":%d,\"comparisonPowerFactor\":0.85,\"comparisonLoadPu\":1,\"candidates\":[",
+            optimization->evaluatedDesigns, optimization->feasibleDesigns, optimization->paretoCount, optimization->recommendedIndex);
         for (int i = 0; i < optimization->count; i++) {
-            const OptimizationCandidate *c = &optimization->candidates[i];
-            fprintf(out, "%s{\"bm\":%.8g,\"currentDensityTarget\":%.8g,\"windowAspectRatio\":%.8g,\"totalLossW\":%.8g,\"activeMassKg\":%.8g,\"materialCostIndex\":%.8g,\"efficiencyPercent\":%.8g,\"impedancePercent\":%.8g,\"temperatureRiseC\":%.8g,\"benchmarkPassCount\":%d,\"balanceScore\":%.8g}",
-                i ? "," : "", c->Bm, c->currentDensityTarget, c->windowAspectRatio,
-                c->totalLossW, c->activeMassKg, c->materialCostIndex, c->efficiencyPercent,
-                c->impedancePercent, c->temperatureRiseC, c->benchmarkPassCount, c->balanceScore);
+            if (i) fputc(',', out);
+            jsonOptimizationCandidate(out, &optimization->candidates[i]);
         }
-        fputs("]}\n", out);
+        fputs("],\"samples\":[", out);
+        for (int i = 0; i < optimization->sampleCount; i++) {
+            if (i) fputc(',', out);
+            jsonOptimizationCandidate(out, &optimization->samples[i]);
+        }
+        fputs("],\"criteriaWinners\":{", out);
+        static const char *keys[] = {"efficiency", "specificMass", "noLoadCurrent", "tankVolume"};
+        for (int i = 0; i < OPTIMIZATION_CRITERIA_COUNT; i++) {
+            if (i) fputc(',', out);
+            jsonString(out, keys[i]); fputc(':', out);
+            if (optimization->criteriaWinners[i].serialNumber) jsonOptimizationCandidate(out, &optimization->criteriaWinners[i]);
+            else fputs("null", out);
+        }
+        fputs("}}\n", out);
     }
     fputs("}\n", out);
     return ferror(out) ? -1 : 0;

@@ -57,7 +57,17 @@ To present a calculation:
 5. At the end of a section, Next continues to the next completed project section without leaving presentation mode.
 6. Press Escape or the × control to return to the detailed section page.
 
-The complete order is Lenana → Natasha → Aitsa → Stephanie → Hadassah → Yona. In a partial Explore run, the presentation follows only the completed prerequisite chain.
+The complete order is Lenana → Natasha → Aitsa → Stephanie → Hadassah → Yona. After an Optimal run, the new variant-comparison slides follow Yona. In a partial Explore run, the presentation follows only the completed prerequisite chain.
+
+### Presenting the optimal comparison
+
+Run Optimal again after updating both the backend and frontend. At the bottom of the optimal-results panel, **Present comparison** opens eight slides: three pages of five sampled variants, one slide for each of the four textbook criteria, then the balanced Pareto choice. Arrow keys move between slides and sections; Exit or Finish returns to the results.
+
+The 15 rows are evenly spaced attempts from the original 294-item search, including rejected attempts. Serial numbers are IDs, not ranks. A row marked **No** failed an implemented hard constraint; its failure reasons appear in the dashboard table. All four winners are selected from every feasible attempt, so they may not appear in the sample and the same variant may win multiple criteria. Exact ties choose the earliest serial; rounded display values may appear tied even when the underlying values differ.
+
+The comparison efficiency is at full load and **0.85 PF**, matching the textbook optimal-output table. The existing headline efficiency uses unity PF. kg/kVA is the current model's active-mass measure, not shipping mass; see README's existing three-phase copper-accounting limitation. Tank volume excludes external tubes and fittings. All values come from the C results.
+
+The balanced recommendation uses the full feasible Pareto frontier for equal-weight normalized loss, active mass and material-cost ranking. It does not guarantee Kenya Power benchmark compliance. If no attempt passes the hard constraints, the samples remain visible and recommendations explicitly say no feasible variant.
 
 ## Test configurations and metric views
 

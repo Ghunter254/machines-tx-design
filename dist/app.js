@@ -381,7 +381,7 @@ function renderOptimization(data) {
     const lossChange = Number.isFinite(baselineLoss) && baselineLoss ? (recommended.totalLossW / baselineLoss - 1) * 100 : undefined;
     const massChange = Number.isFinite(baselineMass) && baselineMass ? (recommended.activeMassKg / baselineMass - 1) * 100 : undefined;
     const signed = value => Number.isFinite(value) ? `${value > 0 ? '+' : ''}${number(value, 1)}%` : '—';
-    $('optimizationLead').innerHTML = `<div class="recommendation-copy"><span>RECOMMENDATION</span><h3>Bm ${number(recommended.bm, 3)} T · J ${number(recommended.currentDensityTarget, 3)} A/mm² · H/W ${number(recommended.windowAspectRatio, 2)}</h3><p>This is the lowest balanced score among the retained feasible candidates—not simply the lowest-loss or lightest design.</p></div>
+    $('optimizationLead').innerHTML = `<div class="recommendation-copy"><span>RECOMMENDATION${recommended.serialNumber ? ` · VARIANT ${recommended.serialNumber}` : ''}</span><h3>Bm ${number(recommended.bm, 3)} T · J ${number(recommended.currentDensityTarget, 3)} A/mm² · H/W ${number(recommended.windowAspectRatio, 2)}</h3><p>${optimization.paretoCount != null ? `This has the lowest equal-weight normalized loss, mass and cost score across all ${optimization.paretoCount} feasible Pareto variants.` : 'This saved result uses the earlier ranking. Run Optimal again for the updated comparison.'}</p></div>
       <dl class="recommendation-values">
         <div><dt>Total loss</dt><dd>${number(recommended.totalLossW / 1000, 3)} kW <small>${signed(lossChange)} vs reference</small></dd></div>
         <div><dt>Active mass</dt><dd>${number(recommended.activeMassKg, 1)} kg <small>${signed(massChange)} vs reference</small></dd></div>
@@ -396,6 +396,7 @@ function renderOptimization(data) {
     <div><strong>Bm ${number(candidate.bm, 3)} T · J ${number(candidate.currentDensityTarget, 3)} A/mm²</strong><small>H/W ${number(candidate.windowAspectRatio, 2)} · ${number(candidate.totalLossW / 1000, 3)} kW · ${number(candidate.activeMassKg, 1)} kg</small></div>
     <span class="candidate-score">${number(candidate.balanceScore, 3)}</span>
   </article>`).join('');
+  $('optimizationComparison').innerHTML = window.TX_OPTIMIZATION.render(optimization);
 }
 
 function applyRecommendedCandidate() {
@@ -457,7 +458,10 @@ function renderFormulaSlide(section) {
 
 function availablePresentationSections() {
   const completed = lastResult?.meta?.completedSections || [];
-  return sections.filter(section => completed.includes(section.id));
+  const available = sections.filter(section => completed.includes(section.id));
+  const optimal = window.TX_OPTIMIZATION.section(lastResult?.optimization);
+  if (optimal) available.push(optimal);
+  return available;
 }
 
 function presentationPosition() {
@@ -470,7 +474,7 @@ function renderPresentationSlide() {
   const { available, sectionIndex, section } = presentationPosition();
   const current = section?.slides?.[slideIndex];
   if (!current) return;
-  const raw = get(lastResult, current.resultPath);
+  const raw = current.resultPath ? get(lastResult, current.resultPath) : undefined;
   const value = Number.isFinite(Number(raw)) ? Number(raw) * (current.multiplier ?? 1) : undefined;
   const evaluation = current.evaluationId ? evaluationById(current.evaluationId) : null;
   const rangeLabel = evaluation?.status || 'BASIS';
@@ -490,6 +494,11 @@ function renderPresentationSlide() {
   $('presentPrevLabel').textContent = slideIndex === 0 && previousSection ? previousSection.owner : 'Previous';
   $('presentNextLabel').textContent = isLast ? 'Finish' : slideIndex === section.slides.length - 1 && nextSection ? `Continue to ${nextSection.owner}` : 'Next';
   $('presentProgress').innerHTML = available.map((item, index) => `<i class="${index < sectionIndex ? 'done' : index === sectionIndex ? 'active' : ''}" title="${escapeHtml(item.owner)}"></i>`).join('');
+  $('presentSlide').classList.toggle('optimal-slide', section.id === 'optimization');
+  if (section.id === 'optimization') {
+    $('presentSlide').innerHTML = window.TX_OPTIMIZATION.slide(current, lastResult.optimization);
+    return;
+  }
   $('presentSlide').innerHTML = `<div class="present-topline"><span class="slide-symbol">${escapeHtml(current.symbol)}</span><span>CALCULATION ${String(slideIndex + 1).padStart(2, '0')} · ${escapeHtml(section.owner.toUpperCase())}</span></div>
     <h2>${escapeHtml(current.title)}</h2>
     <div class="present-formula">${escapeHtml(current.formula)}</div>
@@ -542,7 +551,13 @@ async function closePresentation(skipFullscreenExit = false) {
   if (!skipFullscreenExit && document.fullscreenElement) {
     try { await document.exitFullscreen(); } catch { /* already exiting */ }
   }
-  if (activeSectionId) {
+  if (activeSectionId === 'optimization') {
+    activeSectionId = null;
+    history.replaceState(null, '', '#/');
+    showView('dashboardView');
+    $('optimizationComparison').scrollIntoView({ block: 'start' });
+    $('presentOptimization')?.focus({ preventScroll: true });
+  } else if (activeSectionId) {
     history.replaceState(null, '', `#/section/${activeSectionId}`);
     showView('detailView');
     renderDetail(activeSectionId);
@@ -746,7 +761,14 @@ function bindEvents() {
   $('metricView').addEventListener('change', () => { renderMetricNote(); if (lastResult) renderHeroMetrics(lastResult); });
   $('runButton').addEventListener('click', runSimulation);
   $('configRunButton').addEventListener('click', runSimulation);
-  $('optimizationSection').addEventListener('click', event => { if (event.target.closest('#applyRecommended')) applyRecommendedCandidate(); });
+  $('optimizationSection').addEventListener('click', event => {
+    if (event.target.closest('#applyRecommended')) applyRecommendedCandidate();
+    if (event.target.closest('#presentOptimization')) {
+      activeSectionId = 'optimization';
+      slideIndex = 0;
+      openPresentation();
+    }
+  });
   $('prevSlide').addEventListener('click', () => { if (slideIndex > 0) { slideIndex--; renderDetail(activeSectionId); } });
   $('nextSlide').addEventListener('click', () => { const section = sections.find(item => item.id === activeSectionId); if (section && slideIndex < section.slides.length - 1) { slideIndex++; renderDetail(activeSectionId); } });
   $('slideDots').addEventListener('click', event => { const button = event.target.closest('[data-slide]'); if (!button) return; slideIndex = Number(button.dataset.slide); renderDetail(activeSectionId); });

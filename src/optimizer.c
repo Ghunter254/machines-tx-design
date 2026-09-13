@@ -6,6 +6,7 @@
 #include <string.h>
 
 #define MAX_SEARCH_DESIGNS 512
+#define SEARCH_DESIGNS (7 * 7 * 6)
 
 static int isSafeFeasible(const Transformer *tx)
 {
@@ -46,12 +47,61 @@ static int compareBalance(const void *left, const void *right)
     const OptimizationCandidate *b = (const OptimizationCandidate *)right;
     if (a->balanceScore < b->balanceScore) return -1;
     if (a->balanceScore > b->balanceScore) return 1;
-    return 0;
+    return (a->serialNumber > b->serialNumber) - (a->serialNumber < b->serialNumber);
+}
+
+static void summarize(const Transformer *tx, int serial, int calculated, OptimizationCandidate *c)
+{
+    memset(c, 0, sizeof(*c));
+    c->serialNumber = serial;
+    c->Bm = tx->input.Bm;
+    c->currentDensityTarget = tx->input.cdav;
+    c->windowAspectRatio = tx->input.windowAspectRatio;
+    c->calculated = calculated && isfinite(tx->performance.ptFL) &&
+        isfinite(tx->tank.Wtot) && isfinite(tx->tankDerived.materialCostIndex) &&
+        isfinite(tx->performance.cases[0].efficiency) && isfinite(tx->performance.cases[1].efficiency) && isfinite(tx->performance.Ez) &&
+        isfinite(tx->tank.TrWithTubes) && isfinite(tx->tank.KgPkva) &&
+        isfinite(tx->noLoadCurrent.I0byI2) && isfinite(tx->tank.Vt);
+    if (!c->calculated) {
+        strcpy(c->constraintFailures, "Calculation failed or non-finite output");
+        return;
+    }
+    c->feasible = isSafeFeasible(tx);
+    c->totalLossW = tx->performance.ptFL * 1000.0;
+    c->activeMassKg = tx->tank.Wtot;
+    c->materialCostIndex = tx->tankDerived.materialCostIndex;
+    c->efficiencyPercent = tx->performance.cases[0].efficiency;
+    c->comparisonEfficiencyPercent = tx->performance.cases[1].efficiency;
+    c->impedancePercent = tx->performance.Ez * 100.0;
+    c->temperatureRiseC = tx->tank.TrWithTubes;
+    c->benchmarkPassCount = benchmarkPassCount(tx);
+    c->specificMassKgKva = tx->tank.KgPkva;
+    c->noLoadCurrentPercent = tx->noLoadCurrent.I0byI2;
+    c->tankVolumeM3 = tx->tank.Vt;
+#define FAILURE(condition, label) if (!(condition)) strcat(c->constraintFailures, label "; ")
+    FAILURE(tx->lv.cd >= 2.3 && tx->lv.cd <= 3.5, "LV current density");
+    FAILURE(tx->hv.cd >= 2.3 && tx->hv.cd <= 3.5, "HV current density");
+    FAILURE(tx->lv.SlkAx >= 7.0, "LV axial clearance");
+    FAILURE(tx->hv.SlkAx >= 7.0, "HV axial clearance");
+    FAILURE(tx->hv.endCoilTurns > 0.0, "HV end-coil turns");
+    FAILURE(tx->magneticFrame.D * 1000.0 - tx->hv.do_ >= 15.0, "Adjacent winding clearance");
+    FAILURE(tx->tank.TrWithTubes <= tx->input.TRP + 0.05, "Cooled temperature rise");
+    FAILURE(tx->tankDerived.Voil > 0.0, "Oil volume");
+#undef FAILURE
+}
+
+static double criterionValue(const OptimizationCandidate *c, int criterion)
+{
+    if (criterion == 0) return -c->comparisonEfficiencyPercent;
+    if (criterion == 1) return c->specificMassKgKva;
+    if (criterion == 2) return c->noLoadCurrentPercent;
+    return c->tankVolumeM3;
 }
 
 int runOptimization(const Transformer *baseline, OptimizationSet *set)
 {
     OptimizationCandidate pool[MAX_SEARCH_DESIGNS];
+    OptimizationCandidate frontier[MAX_SEARCH_DESIGNS];
     int pareto[MAX_SEARCH_DESIGNS];
     int poolCount = 0;
     memset(set, 0, sizeof(*set));
@@ -71,22 +121,23 @@ int runOptimization(const Transformer *baseline, OptimizationSet *set)
                 candidate.input.automaticConductorSizing = true;
                 candidate.runMode = RUN_OPTIMIZE;
                 set->evaluatedDesigns++;
-                if (runSimulation(&candidate, SECTION_ALL) != 0 || !isSafeFeasible(&candidate)) continue;
+                int calculated = runSimulation(&candidate, SECTION_ALL) == 0;
+                OptimizationCandidate result;
+                summarize(&candidate, set->evaluatedDesigns, calculated, &result);
+                /* Inclusive, evenly spaced samples of the original attempt sequence. */
+                if (set->sampleCount < OPTIMIZATION_SAMPLE_COUNT &&
+                    result.serialNumber == 1 + (int)lround((double)set->sampleCount *
+                        (SEARCH_DESIGNS - 1) / (OPTIMIZATION_SAMPLE_COUNT - 1)))
+                    set->samples[set->sampleCount++] = result;
+                if (!result.feasible) continue;
                 set->feasibleDesigns++;
+                for (int criterion = 0; criterion < OPTIMIZATION_CRITERIA_COUNT; criterion++) {
+                    OptimizationCandidate *winner = &set->criteriaWinners[criterion];
+                    if (!winner->serialNumber || criterionValue(&result, criterion) < criterionValue(winner, criterion))
+                        *winner = result;
+                }
                 if (poolCount >= MAX_SEARCH_DESIGNS) continue;
-
-                OptimizationCandidate *result = &pool[poolCount++];
-                result->Bm = candidate.input.Bm;
-                result->currentDensityTarget = candidate.input.cdav;
-                result->windowAspectRatio = candidate.input.windowAspectRatio;
-                result->totalLossW = candidate.performance.ptFL * 1000.0;
-                result->activeMassKg = candidate.tank.Wtot;
-                result->materialCostIndex = candidate.tankDerived.materialCostIndex;
-                result->efficiencyPercent = candidate.performance.cases[0].efficiency;
-                result->impedancePercent = candidate.performance.Ez * 100.0;
-                result->temperatureRiseC = candidate.tank.TrWithTubes;
-                result->benchmarkPassCount = benchmarkPassCount(&candidate);
-                result->balanceScore = 0.0;
+                pool[poolCount++] = result;
             }
         }
     }
@@ -123,10 +174,13 @@ int runOptimization(const Transformer *baseline, OptimizationSet *set)
         double mass = massRange > 0.0 ? (candidate.activeMassKg - minMass) / massRange : 0.0;
         double cost = costRange > 0.0 ? (candidate.materialCostIndex - minCost) / costRange : 0.0;
         candidate.balanceScore = sqrt(loss * loss + mass * mass + cost * cost);
-        if (set->count < MAX_OPTIMIZATION_RESULTS) set->candidates[set->count++] = candidate;
+        frontier[i] = candidate;
     }
 
-    qsort(set->candidates, (size_t)set->count, sizeof(set->candidates[0]), compareBalance);
+    set->paretoCount = paretoCount;
+    qsort(frontier, (size_t)paretoCount, sizeof(frontier[0]), compareBalance);
+    set->count = paretoCount < MAX_OPTIMIZATION_RESULTS ? paretoCount : MAX_OPTIMIZATION_RESULTS;
+    memcpy(set->candidates, frontier, (size_t)set->count * sizeof(frontier[0]));
     set->recommendedIndex = set->count > 0 ? 0 : -1;
     return set->count > 0 ? 0 : -1;
 }

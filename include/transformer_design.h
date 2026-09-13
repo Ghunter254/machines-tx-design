@@ -7,6 +7,8 @@
 #define PERFORMANCE_CASES 4
 #define MAX_EVALUATIONS 24
 #define MAX_OPTIMIZATION_RESULTS 32
+#define OPTIMIZATION_SAMPLE_COUNT 15
+#define OPTIMIZATION_CRITERIA_COUNT 4
 
 typedef enum { CONNECTION_STAR = 0, CONNECTION_DELTA = 1 } ConnectionKind;
 typedef enum { RUN_NOMINAL = 0, RUN_EXPLORE = 1, RUN_OPTIMIZE = 2 } RunMode;
@@ -132,16 +134,24 @@ typedef struct
 
 typedef struct
 {
+    int serialNumber;
+    bool calculated, feasible;
+    char constraintFailures[256];
     double Bm, currentDensityTarget, windowAspectRatio;
     double totalLossW, activeMassKg, materialCostIndex;
     double efficiencyPercent, impedancePercent, temperatureRiseC;
     int benchmarkPassCount;
     double balanceScore;
+    double comparisonEfficiencyPercent, specificMassKgKva, noLoadCurrentPercent, tankVolumeM3;
 } OptimizationCandidate;
 
 typedef struct
 {
     OptimizationCandidate candidates[MAX_OPTIMIZATION_RESULTS];
+    OptimizationCandidate samples[OPTIMIZATION_SAMPLE_COUNT];
+    /* Maximum full-load 0.85-PF efficiency, minimum kg/kVA, I0/I2, tank volume. */
+    OptimizationCandidate criteriaWinners[OPTIMIZATION_CRITERIA_COUNT];
+    int sampleCount, paretoCount;
     int count, feasibleDesigns, evaluatedDesigns, recommendedIndex;
 } OptimizationSet;
 
