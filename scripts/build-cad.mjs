@@ -1,0 +1,10 @@
+import path from 'node:path';
+import {existsSync} from 'node:fs';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const local=process.platform==='win32'?'tx-3d/.venv/Scripts/python.exe':'tx-3d/.venv/bin/python';
+const python=process.env.TX_CAD_PYTHON||(existsSync(path.join(root,local))?path.join(root,local):process.platform==='win32'?'python':'python3');
+const child=spawn(python,[path.join(root,'tx-3d/build.py'),...process.argv.slice(2)],{cwd:root,stdio:'inherit',windowsHide:true});
+child.on('error',error=>{console.error(`CadQuery Python unavailable: ${error.message}. See tx-3d/README.md for the isolated environment setup.`);process.exitCode=1;});
+child.on('exit',code=>{process.exitCode=code??1;});

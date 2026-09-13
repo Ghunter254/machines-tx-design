@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#10151b"><title>TX Assembly · Solid CAD</title>
+  <link rel="stylesheet" href="./viewer.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">TX</span><span>Assembly studio<small>PARAMETRIC SOLID MODEL</small></span></a>
+    <nav class="view-modes" aria-label="Assembly view"><button data-view="assembled" class="active">Assembled</button><button data-view="active">Active part</button><button data-view="exploded">Exploded</button></nav>
+    <div class="top-actions"><button id="fullscreen" title="Fill screen">⛶</button><a class="download" href="./assets/transformer.step" download>Download STEP <span>↗</span></a></div>
+  </header>
+  <main>
+    <aside class="navigator">
+      <div class="design-meta"><span class="eyebrow">SAVED C RESULT · SOLID CAD</span><h1 id="modelName">Transformer assembly</h1><p id="modelMeta">Loading CAD assembly…</p><p id="snapshotState"></p></div>
+      <div class="side-heading"><h2>Assembly controls</h2><button id="restore" title="Restore all components">Reset</button></div>
+      <details class="component-tree"><summary>Components <span>Show / hide</span></summary><div id="groupList" class="group-list"></div></details>
+      <div class="side-tools"><label for="explode">Explode assembly <output id="explodeValue">0%</output></label><input id="explode" type="range" min="0" max="100" value="0">
+        <label class="toggle"><input id="cutaway" type="checkbox"> Half-section</label>
+        <label class="toggle"><input id="edges" type="checkbox"> Show CAD edges</label>
+        <label class="toggle"><input id="dimensions" type="checkbox"> Dimension guides</label>
+      </div>
+      <div class="side-bottom"><button id="rebuild">Regenerate from C result <span>↗</span></button><p id="buildHint">Checking local CAD generator…</p><a href="./assets/cad-report.txt" target="_blank">Geometry &amp; reconciliation report ↗</a></div>
+    </aside>
+    <section class="viewport" aria-label="Interactive CAD model">
+      <button id="mobileControls" aria-expanded="false">Model controls</button>
+      <canvas id="scene" aria-label="Transformer assembly. Drag to orbit, scroll to zoom, click a part to inspect."></canvas>
+      <div id="loadState" class="load-state"><span class="spinner"></span><strong>Loading solid assembly</strong><p>Preparing the CAD surface representation</p></div>
+      <div class="viewport-caption"><span id="viewTitle">Complete assembly</span><small id="geometryId">CAD GEOMETRY</small></div>
+      <div class="camera-controls" aria-label="Camera orientations"><button data-camera="iso" title="Isometric view">ISO</button><button data-camera="front">Front</button><button data-camera="right">Right</button><button data-camera="top">Top</button><button id="fit" title="Fit model">Fit</button></div>
+      <div id="dimensionOverlay" aria-hidden="true"></div>
+      <div id="inspection" class="inspection" hidden><button id="closeInspection" class="close" aria-label="Close part inspector">×</button><span id="partGroup" class="eyebrow"></span><h2 id="partName"></h2><dl id="partProperties"></dl><p id="partSource"></p><div><button id="isolate">Isolate</button><button id="hidePart">Hide part</button></div></div>
+      <div class="viewport-footer"><span>Drag to orbit · Scroll to zoom · Click to inspect</span><span id="meshStats"></span></div>
+      <div id="notice" class="notice" role="status" hidden></div>
+    </section>
+  </main>
+  <footer class="assembly-timeline"><button id="play" aria-label="Play assembly sequence">▶</button><div class="stage-description"><span>ASSEMBLY SEQUENCE</span><strong id="stageName">Complete transformer</strong></div><input id="stage" type="range" min="1" max="11" value="11" aria-label="Assembly stage"><output id="stageCount">11 / 11</output><button id="previousStage" aria-label="Previous assembly stage">←</button><button id="nextStage" aria-label="Next assembly stage">→</button></footer>
+  <script type="module" src="./viewer.js"></script>
+</body>
+</html>

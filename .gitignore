@@ -4,3 +4,7 @@ data/output.json
 data/runs/
 node_modules/
 tmp/
+tx-3d/.venv/
+tx-3d/__pycache__/
+tx-3d/.work/
+tx-3d/*.log

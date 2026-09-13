@@ -4,6 +4,7 @@ The project is split into two deployable surfaces: `dist/` is the static fronten
 
 Dashboard operation, run modes and troubleshooting are documented in `DASHBOARD_GUIDE.md`.
 The textbook reconciliation and automated equation coverage are documented in `FORMULA_AUDIT.md`.
+The parametric CadQuery solid assembly, STEP downloads, build/disassembly viewer and regeneration instructions are documented in [tx-3d/README.md](tx-3d/README.md). Open `/cad/` on the local server, or use the dashboard's **3D assembly** link.
 
 ## Run locally
 

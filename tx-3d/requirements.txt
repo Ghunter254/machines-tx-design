@@ -1,0 +1,4 @@
+cadquery==2.6.1
+cadquery-ocp==7.8.1.1.post1
+# Newer CasADi wheels caused a Windows access violation on Python shutdown.
+casadi==3.6.7

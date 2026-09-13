@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { cadStatus, buildCad } from './cad.mjs';
 
 // The backend is deliberately independent from the frontend. It owns the C executable,
 // configuration, generated reports and the /api contract consumed by Vercel.
@@ -62,9 +63,9 @@ function sectionArgument(sections) {
 
 function safeOverrideKey(key) { return /^[A-Z0-9_]+$/.test(key); }
 
-const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8'};
+const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.glb':'model/gltf-binary','.step':'application/step','.png':'image/png','.txt':'text/plain; charset=utf-8'};
 async function serveFrontend(urlPath, res) {
-  const relative = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
+  const relative = urlPath === '/' ? 'index.html' : urlPath.endsWith('/') ? urlPath.replace(/^\/+/, '')+'index.html' : urlPath.replace(/^\/+/, '');
   const target = path.resolve(dist, relative);
   if (!target.startsWith(path.resolve(dist))) return send(res, 404, 'Not found', 'text/plain; charset=utf-8');
   try { return send(res, 200, await fs.readFile(target), mime[path.extname(target)] || 'application/octet-stream'); }
@@ -107,6 +108,8 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (req.method === 'OPTIONS') return send(res, 204, '');
+    if (req.method === 'GET' && url.pathname === '/api/cad/status') return json(res, 200, cadStatus());
+    if (req.method === 'POST' && url.pathname === '/api/cad/build') return json(res, 200, await buildCad());
     if (req.method === 'GET' && url.pathname === '/api/health') {
       return json(res, 200, { ok: true, executable: existsSync(executable), engine: 'tx-c-c11' });
     }

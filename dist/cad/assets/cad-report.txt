@@ -1,0 +1,25 @@
+TX-C SOLID CAD REPORT — 630 kVA · Dy11 · ONAN
+Geometry ID: 315a35d8a9aee203
+355 named parts / 598 valid solids
+Browser mesh: 2.80 MB / 423,294 triangles
+
+RECONCILIATION
+PASS: Stepped limb cross-section: 27202.7 (reference 27202.7) mm²
+PASS: Cooling tubes: 62 (reference 62) parts
+PASS: Core gross-envelope steel accounting: 898.324 (reference 898.324) kg
+PASS: LV copper across three phases: 214.06 (reference 214.06) kg
+PASS: HV copper across three phases: 307.868 (reference 307.868) kg
+PASS: LV axial assembly fit: 33.4 (reference 7) mm minimum
+PASS: HV axial assembly fit: 31.8 (reference 7) mm minimum
+WARN: Adjacent HV winding clearance: 11.2 (reference 15) mm minimum
+
+CONSTRUCTION NOTES
+- C LV and HV copper masses are per phase. The C tank total adds each once; this assembly contains three windings of each kind. The C totals are retained in the source snapshot and are not treated as the CAD assembly mass.
+- Winding solids represent copper/insulation packs. Their geometric volume must not be multiplied by pure copper density. Copper mass is separately assigned from the C winding calculation.
+- Core packet cross-section is area-matched to C gross area. Packet schedule and butt-joint geometry are construction assumptions, not a fabrication lamination schedule.
+- The C core mass uses gross area and steel density. CAD repeats that convention; insulation between laminations is not resolved.
+- C tank dimensions are interpreted as the clear internal cavity. Exterior walls, flange, cover, cooling tubes and fittings increase overall size.
+- Bushings, clamps, lead routing, conservator and hardware are assumed general-arrangement components. Dielectric, pressure, weld and mechanical design are not certified by their geometry.
+- Nominal oil domain is a display aid, excluded from STEP and mass totals; it is not a boolean-subtracted oil-volume calculation.
+- Cooling tube heat-transfer height follows the C parameter; bends and connection details are CAD assumptions.
+- Star-connected windings display an accessible neutral bushing; delta windings display three bushings. Internal vector-group jumpers and neutral lead topology are not resolved.

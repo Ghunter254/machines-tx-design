@@ -5,6 +5,7 @@
   "description": "Local dashboard and C simulation engine for transformer design",
   "scripts": {
     "build:c": "node scripts/build-c.mjs",
+    "build:cad": "node scripts/build-cad.mjs",
     "verify:formulas": "node scripts/verify-formulas.mjs",
     "start": "node backend/server.mjs",
     "start:backend": "node backend/server.mjs"
