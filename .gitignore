@@ -1,4 +1,4 @@
-build/
+/build/
 data/output.txt
 data/output.json
 data/runs/

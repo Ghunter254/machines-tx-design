@@ -37,6 +37,12 @@
     </section>
   </main>
   <footer class="assembly-timeline"><button id="play" aria-label="Play assembly sequence">▶</button><div class="stage-description"><span>ASSEMBLY SEQUENCE</span><strong id="stageName">Complete transformer</strong></div><input id="stage" type="range" min="1" max="11" value="11" aria-label="Assembly stage"><output id="stageCount">11 / 11</output><button id="previousStage" aria-label="Previous assembly stage">←</button><button id="nextStage" aria-label="Next assembly stage">→</button></footer>
-  <script type="module" src="./viewer.js"></script>
+  <script type="module">
+    import('./viewer.js').catch((error) => {
+      const state = document.getElementById('loadState');
+      state.innerHTML = '<strong>Unable to load the 3D viewer</strong><p>The viewer runtime is missing or unavailable. Redeploy the complete <code>dist/cad/vendor</code> directory.</p>';
+      console.error('CAD viewer startup failed', error);
+    });
+  </script>
 </body>
 </html>
