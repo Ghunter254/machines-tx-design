@@ -35,6 +35,15 @@ int main(void)
 {
     Transformer tx = {0};
     tx.input.TRP = 50;
+    tx.input.optimizerActualCurrentDensityMin = 2.15;
+    tx.input.optimizerActualCurrentDensityMax = 3.6;
+    tx.input.optimizerMinAxialSlackMm = 0;
+    tx.input.optimizerMinAdjacentClearanceMm = 0;
+    tx.input.optimizerTemperatureMarginC = 0.5;
+    tx.input.optimizerMinEfficiencyPercent = 98;
+    tx.input.optimizerMaxSpecificMassKgKva = 400;
+    tx.input.optimizerMaxNoLoadCurrentPercent = 100;
+    tx.input.optimizerMaxTankVolumeM3 = 400;
     OptimizationSet set;
     assert(runOptimization(&tx, &set) == 0);
     assert(set.paretoCount == 294 && set.count == 32);

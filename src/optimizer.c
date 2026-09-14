@@ -10,14 +10,19 @@
 
 static int isSafeFeasible(const Transformer *tx)
 {
+    const DesignInputs *in = &tx->input;
     const double clearance = tx->magneticFrame.D * 1000.0 - tx->hv.do_;
     return isfinite(tx->performance.ptFL) && isfinite(tx->tank.Wtot) &&
-        tx->lv.cd >= 2.3 && tx->lv.cd <= 3.5 &&
-        tx->hv.cd >= 2.3 && tx->hv.cd <= 3.5 &&
-        tx->lv.SlkAx >= 7.0 && tx->hv.SlkAx >= 7.0 &&
-        tx->hv.endCoilTurns > 0.0 && clearance >= 15.0 &&
-        tx->tank.TrWithTubes <= tx->input.TRP + 0.05 &&
-        tx->tankDerived.Voil > 0.0;
+        tx->lv.cd >= in->optimizerActualCurrentDensityMin && tx->lv.cd <= in->optimizerActualCurrentDensityMax &&
+        tx->hv.cd >= in->optimizerActualCurrentDensityMin && tx->hv.cd <= in->optimizerActualCurrentDensityMax &&
+        tx->lv.SlkAx >= in->optimizerMinAxialSlackMm && tx->hv.SlkAx >= in->optimizerMinAxialSlackMm &&
+        tx->hv.endCoilTurns > 0.0 && clearance >= in->optimizerMinAdjacentClearanceMm &&
+        tx->tank.TrWithTubes <= in->TRP + in->optimizerTemperatureMarginC &&
+        tx->tankDerived.Voil > 0.0 &&
+        tx->performance.cases[1].efficiency >= in->optimizerMinEfficiencyPercent &&
+        tx->tank.KgPkva <= in->optimizerMaxSpecificMassKgKva &&
+        tx->noLoadCurrent.I0byI2 <= in->optimizerMaxNoLoadCurrentPercent &&
+        tx->tank.Vt <= in->optimizerMaxTankVolumeM3;
 }
 
 static int benchmarkPassCount(const Transformer *tx)
@@ -79,14 +84,18 @@ static void summarize(const Transformer *tx, int serial, int calculated, Optimiz
     c->noLoadCurrentPercent = tx->noLoadCurrent.I0byI2;
     c->tankVolumeM3 = tx->tank.Vt;
 #define FAILURE(condition, label) if (!(condition)) strcat(c->constraintFailures, label "; ")
-    FAILURE(tx->lv.cd >= 2.3 && tx->lv.cd <= 3.5, "LV current density");
-    FAILURE(tx->hv.cd >= 2.3 && tx->hv.cd <= 3.5, "HV current density");
-    FAILURE(tx->lv.SlkAx >= 7.0, "LV axial clearance");
-    FAILURE(tx->hv.SlkAx >= 7.0, "HV axial clearance");
+    FAILURE(tx->lv.cd >= tx->input.optimizerActualCurrentDensityMin && tx->lv.cd <= tx->input.optimizerActualCurrentDensityMax, "LV current density");
+    FAILURE(tx->hv.cd >= tx->input.optimizerActualCurrentDensityMin && tx->hv.cd <= tx->input.optimizerActualCurrentDensityMax, "HV current density");
+    FAILURE(tx->lv.SlkAx >= tx->input.optimizerMinAxialSlackMm, "LV axial fit");
+    FAILURE(tx->hv.SlkAx >= tx->input.optimizerMinAxialSlackMm, "HV axial fit");
     FAILURE(tx->hv.endCoilTurns > 0.0, "HV end-coil turns");
-    FAILURE(tx->magneticFrame.D * 1000.0 - tx->hv.do_ >= 15.0, "Adjacent winding clearance");
-    FAILURE(tx->tank.TrWithTubes <= tx->input.TRP + 0.05, "Cooled temperature rise");
+    FAILURE(tx->magneticFrame.D * 1000.0 - tx->hv.do_ >= tx->input.optimizerMinAdjacentClearanceMm, "Winding overlap");
+    FAILURE(tx->tank.TrWithTubes <= tx->input.TRP + tx->input.optimizerTemperatureMarginC, "Cooled temperature rise");
     FAILURE(tx->tankDerived.Voil > 0.0, "Oil volume");
+    FAILURE(tx->performance.cases[1].efficiency >= tx->input.optimizerMinEfficiencyPercent, "Minimum efficiency");
+    FAILURE(tx->tank.KgPkva <= tx->input.optimizerMaxSpecificMassKgKva, "Maximum kg/kVA");
+    FAILURE(tx->noLoadCurrent.I0byI2 <= tx->input.optimizerMaxNoLoadCurrentPercent, "Maximum I0/I2");
+    FAILURE(tx->tank.Vt <= tx->input.optimizerMaxTankVolumeM3, "Maximum tank volume");
 #undef FAILURE
 }
 
@@ -124,6 +133,14 @@ int runOptimization(const Transformer *baseline, OptimizationSet *set)
                 int calculated = runSimulation(&candidate, SECTION_ALL) == 0;
                 OptimizationCandidate result;
                 summarize(&candidate, set->evaluatedDesigns, calculated, &result);
+                if (result.calculated) {
+                    set->calculatedDesigns++;
+                    for (int criterion = 0; criterion < OPTIMIZATION_CRITERIA_COUNT; criterion++) {
+                        OptimizationCandidate *winner = &set->calculatedCriteriaWinners[criterion];
+                        if (!winner->serialNumber || criterionValue(&result, criterion) < criterionValue(winner, criterion))
+                            *winner = result;
+                    }
+                }
                 /* Inclusive, evenly spaced samples of the original attempt sequence. */
                 if (set->sampleCount < OPTIMIZATION_SAMPLE_COUNT &&
                     result.serialNumber == 1 + (int)lround((double)set->sampleCount *

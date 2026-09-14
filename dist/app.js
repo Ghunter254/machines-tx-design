@@ -23,7 +23,12 @@ const defaults = {
   WINDOW_ASPECT_RATIO: 3, AUTOMATIC_CONDUCTOR_SIZING: 0,
   OPTIMIZER_BM_MIN: 1.4, OPTIMIZER_BM_MAX: 1.7,
   OPTIMIZER_CURRENT_DENSITY_MIN: 2.3, OPTIMIZER_CURRENT_DENSITY_MAX: 3.2,
-  OPTIMIZER_ASPECT_RATIO_MIN: 2.5, OPTIMIZER_ASPECT_RATIO_MAX: 4.0
+  OPTIMIZER_ASPECT_RATIO_MIN: 2.5, OPTIMIZER_ASPECT_RATIO_MAX: 4.0,
+  OPTIMIZER_ACTUAL_CURRENT_DENSITY_MIN: 2.15, OPTIMIZER_ACTUAL_CURRENT_DENSITY_MAX: 3.6,
+  OPTIMIZER_MIN_AXIAL_SLACK_MM: 0, OPTIMIZER_MIN_ADJACENT_CLEARANCE_MM: 0,
+  OPTIMIZER_TEMPERATURE_MARGIN_C: 0.5, OPTIMIZER_MIN_EFFICIENCY_PERCENT: 98,
+  OPTIMIZER_MAX_SPECIFIC_MASS_KG_KVA: 4, OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT: 1,
+  OPTIMIZER_MAX_TANK_VOLUME_M3: 1.5
 };
 
 const modeCopy = {
@@ -147,6 +152,15 @@ function resetInputs() {
   setInput('optCdMax', defaults.OPTIMIZER_CURRENT_DENSITY_MAX);
   setInput('optAspectMin', defaults.OPTIMIZER_ASPECT_RATIO_MIN);
   setInput('optAspectMax', defaults.OPTIMIZER_ASPECT_RATIO_MAX);
+  setInput('optActualCdMin', defaults.OPTIMIZER_ACTUAL_CURRENT_DENSITY_MIN);
+  setInput('optActualCdMax', defaults.OPTIMIZER_ACTUAL_CURRENT_DENSITY_MAX);
+  setInput('optMinSlack', defaults.OPTIMIZER_MIN_AXIAL_SLACK_MM);
+  setInput('optMinClearance', defaults.OPTIMIZER_MIN_ADJACENT_CLEARANCE_MM);
+  setInput('optTempMargin', defaults.OPTIMIZER_TEMPERATURE_MARGIN_C);
+  setInput('optMinEff', defaults.OPTIMIZER_MIN_EFFICIENCY_PERCENT);
+  setInput('optMaxMass', defaults.OPTIMIZER_MAX_SPECIFIC_MASS_KG_KVA);
+  setInput('optMaxI0', defaults.OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT);
+  setInput('optMaxTank', defaults.OPTIMIZER_MAX_TANK_VOLUME_M3);
   $('autoSizing').checked = false;
 }
 
@@ -200,7 +214,16 @@ function overrides() {
     AUTOMATIC_CONDUCTOR_SIZING: $('autoSizing').checked ? 1 : 0,
     OPTIMIZER_BM_MIN: $('optBmMin').value, OPTIMIZER_BM_MAX: $('optBmMax').value,
     OPTIMIZER_CURRENT_DENSITY_MIN: $('optCdMin').value, OPTIMIZER_CURRENT_DENSITY_MAX: $('optCdMax').value,
-    OPTIMIZER_ASPECT_RATIO_MIN: $('optAspectMin').value, OPTIMIZER_ASPECT_RATIO_MAX: $('optAspectMax').value
+    OPTIMIZER_ASPECT_RATIO_MIN: $('optAspectMin').value, OPTIMIZER_ASPECT_RATIO_MAX: $('optAspectMax').value,
+    OPTIMIZER_ACTUAL_CURRENT_DENSITY_MIN: $('optActualCdMin').value,
+    OPTIMIZER_ACTUAL_CURRENT_DENSITY_MAX: $('optActualCdMax').value,
+    OPTIMIZER_MIN_AXIAL_SLACK_MM: $('optMinSlack').value,
+    OPTIMIZER_MIN_ADJACENT_CLEARANCE_MM: $('optMinClearance').value,
+    OPTIMIZER_TEMPERATURE_MARGIN_C: $('optTempMargin').value,
+    OPTIMIZER_MIN_EFFICIENCY_PERCENT: $('optMinEff').value,
+    OPTIMIZER_MAX_SPECIFIC_MASS_KG_KVA: $('optMaxMass').value,
+    OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT: $('optMaxI0').value,
+    OPTIMIZER_MAX_TANK_VOLUME_M3: $('optMaxTank').value
   };
 }
 
@@ -691,6 +714,20 @@ function validateRunRequest() {
     ];
     const invalid = ranges.find(([, minimum, maximum]) => !Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum >= maximum);
     if (invalid) throw new Error(`${invalid[0]} minimum must be lower than its maximum.`);
+    const actualMinimum = $('optActualCdMin').valueAsNumber;
+    const actualMaximum = $('optActualCdMax').valueAsNumber;
+    if (!Number.isFinite(actualMinimum) || !Number.isFinite(actualMaximum) || actualMinimum >= actualMaximum)
+      throw new Error('Actual current-density minimum must be lower than its maximum.');
+    const positive = [
+      ['Minimum efficiency', $('optMinEff').valueAsNumber], ['Maximum active mass', $('optMaxMass').valueAsNumber],
+      ['Maximum no-load current', $('optMaxI0').valueAsNumber], ['Maximum tank volume', $('optMaxTank').valueAsNumber]
+    ].find(([, value]) => !Number.isFinite(value) || value <= 0);
+    if (positive) throw new Error(`${positive[0]} must be greater than zero.`);
+    const nonnegative = [
+      ['Minimum axial slack', $('optMinSlack').valueAsNumber], ['Minimum adjacent gap', $('optMinClearance').valueAsNumber],
+      ['Temperature tolerance', $('optTempMargin').valueAsNumber]
+    ].find(([, value]) => !Number.isFinite(value) || value < 0);
+    if (nonnegative) throw new Error(`${nonnegative[0]} cannot be negative.`);
   }
 }
 

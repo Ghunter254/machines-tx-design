@@ -37,9 +37,10 @@ for (let b = 0; b < 7; b++) for (let j = 0; j < 7; j++) for (let a = 0; a < 6; a
   });
   const tx = run(args), { frame: f, lv, hv, tank: t, noLoad: n, performance: p } = tx.sections;
   const serialNumber = all.length + 1;
-  const feasible = lv.currentDensity >= 2.3 && lv.currentDensity <= 3.5 && hv.currentDensity >= 2.3 && hv.currentDensity <= 3.5 &&
-    lv.axialSlackMm >= 7 && hv.axialSlackMm >= 7 && hv.endCoilTurns > 0 && f.centreDistanceM * 1000 - hv.outerDiameterMm >= 15 &&
-    t.cooledRiseC <= t.targetRiseC + 0.05 && t.oilVolumeM3 > 0;
+  const feasible = lv.currentDensity >= 2.15 && lv.currentDensity <= 3.6 && hv.currentDensity >= 2.15 && hv.currentDensity <= 3.6 &&
+    lv.axialSlackMm >= 0 && hv.axialSlackMm >= 0 && hv.endCoilTurns > 0 && f.centreDistanceM * 1000 - hv.outerDiameterMm >= 0 &&
+    t.cooledRiseC <= t.targetRiseC + 0.5 && t.oilVolumeM3 > 0 && p.cases[1].efficiencyPercent >= 98 &&
+    t.specificMassKgKva <= 4 && n.noLoadCurrentPercent <= 1 && t.volumeM3 <= 1.5;
   const c = { serialNumber, feasible, comparisonEfficiencyPercent: p.cases[1].efficiencyPercent,
     specificMassKgKva: t.specificMassKgKva, noLoadCurrentPercent: n.noLoadCurrentPercent, tankVolumeM3: t.volumeM3,
     totalLossW: tx.summary.totalLossW, activeMassKg: t.activeMassKg, materialCostIndex: t.materialCostIndex };
@@ -76,7 +77,8 @@ vm.runInNewContext(fs.readFileSync(path.join(root, 'dist/optimization.js'), 'utf
 const ui = context.window.TX_OPTIMIZATION;
 assert.equal(ui.section(o).slides.length, 8);
 assert.equal((ui.render(o).match(/<tr/g) || []).length, 16);
-assert.match(ui.render(empty), /No feasible variant/);
+assert.match(ui.render(empty), /CALCULATED/);
+assert.match(ui.render(empty), /No balanced recommendation/);
 assert.match(ui.render({}), /Run Optimal again/);
 for (const result of [o, empty]) for (const slide of ui.section(result).slides) {
   assert.ok(ui.slide(slide, result).includes('<h2>'));

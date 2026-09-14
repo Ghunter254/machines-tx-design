@@ -61,6 +61,11 @@ typedef struct
     double optimizerBmMin, optimizerBmMax;
     double optimizerCurrentDensityMin, optimizerCurrentDensityMax;
     double optimizerAspectRatioMin, optimizerAspectRatioMax;
+    double optimizerActualCurrentDensityMin, optimizerActualCurrentDensityMax;
+    double optimizerMinAxialSlackMm, optimizerMinAdjacentClearanceMm;
+    double optimizerTemperatureMarginC;
+    double optimizerMinEfficiencyPercent, optimizerMaxSpecificMassKgKva;
+    double optimizerMaxNoLoadCurrentPercent, optimizerMaxTankVolumeM3;
     double copperCostIndex, coreSteelCostIndex, tankSteelCostIndex, oilCostIndex;
     bool automaticConductorSizing;
 } DesignInputs;
@@ -151,7 +156,9 @@ typedef struct
     OptimizationCandidate samples[OPTIMIZATION_SAMPLE_COUNT];
     /* Maximum full-load 0.85-PF efficiency, minimum kg/kVA, I0/I2, tank volume. */
     OptimizationCandidate criteriaWinners[OPTIMIZATION_CRITERIA_COUNT];
-    int sampleCount, paretoCount;
+    /* Diagnostic fallback when no feasible row exists for a textbook criterion. */
+    OptimizationCandidate calculatedCriteriaWinners[OPTIMIZATION_CRITERIA_COUNT];
+    int sampleCount, calculatedDesigns, paretoCount;
     int count, feasibleDesigns, evaluatedDesigns, recommendedIndex;
 } OptimizationSet;
 

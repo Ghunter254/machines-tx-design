@@ -88,6 +88,15 @@ static const InputField fields[] = {
     INPUT_FIELD("OPTIMIZER_CURRENT_DENSITY_MAX", optimizerCurrentDensityMax, INPUT_DOUBLE),
     INPUT_FIELD("OPTIMIZER_ASPECT_RATIO_MIN", optimizerAspectRatioMin, INPUT_DOUBLE),
     INPUT_FIELD("OPTIMIZER_ASPECT_RATIO_MAX", optimizerAspectRatioMax, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_ACTUAL_CURRENT_DENSITY_MIN", optimizerActualCurrentDensityMin, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_ACTUAL_CURRENT_DENSITY_MAX", optimizerActualCurrentDensityMax, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_MIN_AXIAL_SLACK_MM", optimizerMinAxialSlackMm, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_MIN_ADJACENT_CLEARANCE_MM", optimizerMinAdjacentClearanceMm, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_TEMPERATURE_MARGIN_C", optimizerTemperatureMarginC, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_MIN_EFFICIENCY_PERCENT", optimizerMinEfficiencyPercent, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_MAX_SPECIFIC_MASS_KG_KVA", optimizerMaxSpecificMassKgKva, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT", optimizerMaxNoLoadCurrentPercent, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_MAX_TANK_VOLUME_M3", optimizerMaxTankVolumeM3, INPUT_DOUBLE),
     INPUT_FIELD("COPPER_COST_INDEX", copperCostIndex, INPUT_DOUBLE),
     INPUT_FIELD("CORE_STEEL_COST_INDEX", coreSteelCostIndex, INPUT_DOUBLE),
     INPUT_FIELD("TANK_STEEL_COST_INDEX", tankSteelCostIndex, INPUT_DOUBLE),
@@ -148,6 +157,11 @@ void setDefaultConfiguration(Transformer *tx)
     in->optimizerBmMin = 1.4; in->optimizerBmMax = 1.7;
     in->optimizerCurrentDensityMin = 2.3; in->optimizerCurrentDensityMax = 3.2;
     in->optimizerAspectRatioMin = 2.5; in->optimizerAspectRatioMax = 4.0;
+    in->optimizerActualCurrentDensityMin = 2.15; in->optimizerActualCurrentDensityMax = 3.6;
+    in->optimizerMinAxialSlackMm = 0.0; in->optimizerMinAdjacentClearanceMm = 0.0;
+    in->optimizerTemperatureMarginC = 0.5;
+    in->optimizerMinEfficiencyPercent = 98.0; in->optimizerMaxSpecificMassKgKva = 4.0;
+    in->optimizerMaxNoLoadCurrentPercent = 1.0; in->optimizerMaxTankVolumeM3 = 1.5;
     in->copperCostIndex = 8.0; in->coreSteelCostIndex = 2.4;
     in->tankSteelCostIndex = 1.2; in->oilCostIndex = 1.0;
     in->automaticConductorSizing = false;

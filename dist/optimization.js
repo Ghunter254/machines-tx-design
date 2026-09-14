@@ -17,8 +17,9 @@ window.TX_OPTIMIZATION = (() => {
     </table></div>`;
   }
   function winnerCard(criterion, optimization) {
-    const c = optimization.criteriaWinners?.[criterion.key];
-    return `<article class="criterion-card"><p class="kicker">${criterion.title}</p>${c ? `<h3>Select variant <span>${c.serialNumber}</span></h3><div class="criterion-value">${fmt(c[criterion.field], 4)} <small>${criterion.unit}</small></div><p>${criterion.short}</p><small>${inputs(c)}</small>` : '<h3>No feasible variant</h3><p>Review the hard constraints and search bounds before recommending a design.</p>'}</article>`;
+    const c = optimization.criteriaWinners?.[criterion.key] || optimization.calculatedCriteriaWinners?.[criterion.key];
+    const fallback = !optimization.criteriaWinners?.[criterion.key];
+    return `<article class="criterion-card"><p class="kicker">${criterion.title}</p>${c ? `<h3>Select variant <span>${c.serialNumber}</span></h3><div class="criterion-value">${fmt(c[criterion.field], 4)} <small>${criterion.unit}</small></div><p>${fallback ? 'Best calculated row, because no row passed the configured feasibility gate.' : criterion.short}</p><small>${inputs(c)}</small><strong class="criterion-status ${c.feasible ? 'good' : 'bad'}">${c.feasible ? 'TEXTBOOK-FEASIBLE' : 'CALCULATED · NOT FEASIBLE'}</strong>${!c.feasible ? `<small class="criterion-failure">${escape(c.constraintFailures)}</small>` : ''}` : '<h3>No calculated variant</h3><p>The simulator did not return a usable result for this search.</p>'}</article>`;
   }
   function balanced(optimization) {
     const c = optimization.candidates?.[optimization.recommendedIndex];
@@ -26,15 +27,15 @@ window.TX_OPTIMIZATION = (() => {
     return `<div class="balanced-summary"><div><p class="kicker">BALANCED PARETO CHOICE</p><h3>Select variant ${c.serialNumber}</h3><p>${inputs(c)}</p></div><dl><div><dt>Total loss</dt><dd>${fmt(c.totalLossW / 1000)} kW</dd></div><div><dt>Active mass</dt><dd>${fmt(c.activeMassKg, 1)} kg</dd></div><div><dt>Cost index</dt><dd>${fmt(c.materialCostIndex, 1)}</dd></div><div><dt>Balance score</dt><dd>${fmt(c.balanceScore, 4)}</dd></div></dl></div>`;
   }
   const balanceExplanation = 'Loss, active mass and material cost index are each normalized over the full feasible Pareto set. The smallest equal-weight distance to the ideal point is selected. This is a model-based compromise, not a unique universal optimum.';
-  const qualification = 'Feasible means the implemented hard constraints passed. Kenya Power benchmark compliance is separate; a recommendation is not a manufacturing approval.';
+  const qualification = 'Feasible means the configured physical-fit and objective limits passed. Kenya Power benchmark compliance is separate; a recommendation is not a manufacturing approval.';
   function render(optimization) {
     if (!optimization.samples) return '<p class="empty-copy">Run Optimal again after updating the backend to generate the variant comparison.</p>';
     return `<header class="comparison-header"><div><p class="kicker">DESIGN VARIANT COMPARISON</p><h2>Choose for your priority</h2></div><button id="presentOptimization" type="button" class="soft-button">Present comparison ↗</button></header>
-      <p class="comparison-note">${optimization.samples.length} evenly spaced attempts out of ${optimization.evaluatedDesigns}; ${optimization.feasibleDesigns} feasible. Serial numbers are original search IDs, not ranks. Bm in T; J in A/mm²; H/W is the target window ratio.</p>
+      <p class="comparison-note">${optimization.samples.length} evenly spaced attempts out of ${optimization.evaluatedDesigns}; ${optimization.calculatedDesigns ?? optimization.evaluatedDesigns} calculated; ${optimization.feasibleDesigns} feasible. Serial numbers are original search IDs, not ranks. Bm in T; J in A/mm²; H/W is the target window ratio.</p>
       ${table(optimization.samples)}
       <p class="comparison-note">Efficiency is at full load and 0.85 PF, using the configured loss reference temperature. kg/kVA uses the C model’s active-mass accounting. Excluded rows are shown for comparison but cannot win.</p>
       <div class="criteria-grid">${criteria.map(c => winnerCard(c, optimization)).join('')}</div>
-      <p class="comparison-note">Selections consider all ${optimization.feasibleDesigns} feasible variants, including those outside this sample. Exact ties use the earliest serial; displayed rounding may hide small differences.</p>
+      <p class="comparison-note">The four textbook selections normally consider only feasible rows, matching §5.3.9. If none are feasible, the best calculated row is shown as a clearly labelled fallback so the result is still presentable. Exact ties use the earliest serial; displayed rounding may hide small differences.</p>
       ${balanced(optimization)}<p class="comparison-note">${balanceExplanation}</p><p class="comparison-note">${qualification}</p>`;
   }
   function section(optimization) {
@@ -46,9 +47,9 @@ window.TX_OPTIMIZATION = (() => {
     if (slide.kind === 'table') {
       const start = slide.page * 5;
       const rows = optimization.samples.slice(start, start + 5);
-      return `<p class="kicker">EVENLY SPACED SEARCH SAMPLE · ${start + 1}–${start + rows.length} OF ${optimization.samples.length}</p><h2>Comparing the variants</h2>${table(rows, true)}<p class="comparison-note">Full load · 0.85 PF. Bm [T] / J [A/mm²] / H:W target. “No” excludes a variant from recommendations. ${optimization.feasibleDesigns} of ${optimization.evaluatedDesigns} attempts passed the hard constraints.</p>`;
+      return `<p class="kicker">EVENLY SPACED SEARCH SAMPLE · ${start + 1}–${start + rows.length} OF ${optimization.samples.length}</p><h2>Comparing the variants</h2>${table(rows, true)}<p class="comparison-note">Full load · 0.85 PF. Bm [T] / J [A/mm²] / H:W target. “No” excludes a variant from the balanced Pareto recommendation; it is used for a textbook-priority fallback only when no row passes the configured gate, and will be labelled not feasible. ${optimization.feasibleDesigns} of ${optimization.evaluatedDesigns} attempts passed the configured gate.</p>`;
     }
-    if (slide.kind === 'criterion') return `<p class="kicker">SELECTION BY DESIGN PRIORITY</p><h2>${slide.criterion.title}</h2>${winnerCard(slide.criterion, optimization)}<p class="comparison-note">${slide.criterion.meaning}</p><p class="comparison-note">Winner selected across all feasible attempts. Exact ties use the earliest serial. ${qualification}</p>`;
+    if (slide.kind === 'criterion') return `<p class="kicker">SELECTION BY DESIGN PRIORITY</p><h2>${slide.criterion.title}</h2>${winnerCard(slide.criterion, optimization)}<p class="comparison-note">${slide.criterion.meaning}</p><p class="comparison-note">The textbook selection is from feasible rows. If the feasible set is empty, this slide presents the best calculated row and states why it is not feasible. Exact ties use the earliest serial. ${qualification}</p>`;
     return `<p class="kicker">THE BALANCED RECOMMENDATION</p><h2>Bringing the trade-offs together</h2>${balanced(optimization)}<p class="comparison-note">${balanceExplanation}</p><p class="comparison-note">${qualification}</p>`;
   }
   return { render, section, slide };

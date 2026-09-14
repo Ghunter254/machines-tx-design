@@ -191,8 +191,8 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
 
     if (optimization && optimization->count > 0) {
         fprintf(out, "\nPARETO OPTIMIZATION\n-------------------\n");
-        fprintf(out, "Evaluated %d designs; %d passed the hard geometry and thermal constraints.\n",
-            optimization->evaluatedDesigns, optimization->feasibleDesigns);
+        fprintf(out, "Evaluated %d designs; %d calculated; %d passed the configured physical and objective constraints.\n",
+            optimization->evaluatedDesigns, optimization->calculatedDesigns, optimization->feasibleDesigns);
         fprintf(out, "The first row has the smallest equal-weight normalized loss/mass/cost distance across all %d Pareto variants.\n\n", optimization->paretoCount);
         fprintf(out, "  Bm(T)   J(A/mm2)  window ratio  loss(W)  active kg  cost index  eff(%%)  Z(%%)\n");
         for (int i = 0; i < optimization->count; i++) {
@@ -206,9 +206,16 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
 
     if (optimization) {
         fprintf(out, "\nOPTIMAL DESIGN COMPARISON - TEXTBOOK CRITERIA\n--------------------------------------------\n");
-        fprintf(out, "%d evenly spaced attempts from %d evaluated (%d feasible). Original serial numbers retained.\n",
-            optimization->sampleCount, optimization->evaluatedDesigns, optimization->feasibleDesigns);
+        fprintf(out, "%d evenly spaced attempts from %d evaluated (%d calculated, %d feasible). Original serial numbers retained.\n",
+            optimization->sampleCount, optimization->evaluatedDesigns, optimization->calculatedDesigns, optimization->feasibleDesigns);
         fprintf(out, "Efficiency: full load, 0.85 PF, configured loss reference temperature. Mass: model active mass, excluding tank/oil.\n");
+        fprintf(out, "Configured objective limits: efficiency >= %.3f%%, kg/kVA <= %.3f, I0/I2 <= %.3f%%, tank <= %.3f m3.\n",
+            tx->input.optimizerMinEfficiencyPercent, tx->input.optimizerMaxSpecificMassKgKva,
+            tx->input.optimizerMaxNoLoadCurrentPercent, tx->input.optimizerMaxTankVolumeM3);
+        fprintf(out, "Physical gate: actual J %.3f..%.3f A/mm2, axial slack >= %.3f mm, adjacent gap >= %.3f mm, rise <= target + %.3f C.\n",
+            tx->input.optimizerActualCurrentDensityMin, tx->input.optimizerActualCurrentDensityMax,
+            tx->input.optimizerMinAxialSlackMm, tx->input.optimizerMinAdjacentClearanceMm,
+            tx->input.optimizerTemperatureMarginC);
         fprintf(out, " Sn   Bm(T)  J(A/mm2) H/W     eff(%%)    kg/kVA    I0/I2(%%)   tank(m3) Status\n");
         for (int i = 0; i < optimization->sampleCount; i++) {
             const OptimizationCandidate *c = &optimization->samples[i];
@@ -218,19 +225,21 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
             fprintf(out, "%s\n", c->feasible ? "FEASIBLE" : c->constraintFailures);
         }
         static const char *criteria[] = {"Maximum efficiency (full load, 0.85 PF)", "Minimum active kg/kVA", "Minimum I0/I2 (%)", "Minimum tank volume (m3)"};
-        fprintf(out, "\nSelections use ALL feasible attempts; exact ties choose the earliest serial.\n");
+        fprintf(out, "\nTextbook selections prefer feasible variants; when none pass the configured gate, the best calculated attempt is shown as a diagnostic fallback. Exact ties choose the earliest serial.\n");
         for (int i = 0; i < OPTIMIZATION_CRITERIA_COUNT; i++) {
-            const OptimizationCandidate *c = &optimization->criteriaWinners[i];
+            const OptimizationCandidate *c = optimization->criteriaWinners[i].serialNumber
+                ? &optimization->criteriaWinners[i] : &optimization->calculatedCriteriaWinners[i];
             if (!c->serialNumber) { fprintf(out, "%s: no feasible variant.\n", criteria[i]); continue; }
             double value = i == 0 ? c->comparisonEfficiencyPercent : i == 1 ? c->specificMassKgKva : i == 2 ? c->noLoadCurrentPercent : c->tankVolumeM3;
-            fprintf(out, "%s: select variant Sn %d (%.6f).\n", criteria[i], c->serialNumber, value);
+            fprintf(out, "%s: select variant Sn %d (%.6f) [%s%s%s].\n", criteria[i], c->serialNumber, value,
+                c->feasible ? "FEASIBLE" : "CALCULATED BUT NOT FEASIBLE", c->feasible ? "" : ": ", c->feasible ? "" : c->constraintFailures);
         }
         if (optimization->recommendedIndex >= 0) {
             const OptimizationCandidate *c = &optimization->candidates[optimization->recommendedIndex];
             fprintf(out, "Balanced Pareto: select variant Sn %d (score %.6f; loss %.3f W, active mass %.3f kg, cost index %.3f).\n",
                 c->serialNumber, c->balanceScore, c->totalLossW, c->activeMassKg, c->materialCostIndex);
         }
-        fprintf(out, "Feasible means the implemented hard constraints passed; local benchmark compliance is assessed separately.\n");
+        fprintf(out, "Feasible means the configured physical-fit and objective limits passed. The stricter 7 mm / 15 mm academic checks and local benchmarks remain separately visible.\n");
     }
 
     fprintf(out, "\nNOTES\n-----\n");
@@ -439,8 +448,14 @@ int writeJsonStream(const Transformer *tx, const OptimizationSet *optimization, 
     if (!optimization) {
         fputs("null\n", out);
     } else {
-        fprintf(out, "{\"evaluatedDesigns\":%d,\"feasibleDesigns\":%d,\"paretoCount\":%d,\"recommendedIndex\":%d,\"comparisonPowerFactor\":0.85,\"comparisonLoadPu\":1,\"candidates\":[",
-            optimization->evaluatedDesigns, optimization->feasibleDesigns, optimization->paretoCount, optimization->recommendedIndex);
+        fprintf(out, "{\"evaluatedDesigns\":%d,\"calculatedDesigns\":%d,\"feasibleDesigns\":%d,\"paretoCount\":%d,\"recommendedIndex\":%d,\"comparisonPowerFactor\":0.85,\"comparisonLoadPu\":1,",
+            optimization->evaluatedDesigns, optimization->calculatedDesigns, optimization->feasibleDesigns, optimization->paretoCount, optimization->recommendedIndex);
+        fprintf(out, "\"constraints\":{\"actualCurrentDensityMin\":%.10g,\"actualCurrentDensityMax\":%.10g,\"minimumAxialSlackMm\":%.10g,\"minimumAdjacentClearanceMm\":%.10g,\"temperatureMarginC\":%.10g,\"minimumEfficiencyPercent\":%.10g,\"maximumSpecificMassKgKva\":%.10g,\"maximumNoLoadCurrentPercent\":%.10g,\"maximumTankVolumeM3\":%.10g},\"candidates\":[",
+            tx->input.optimizerActualCurrentDensityMin, tx->input.optimizerActualCurrentDensityMax,
+            tx->input.optimizerMinAxialSlackMm, tx->input.optimizerMinAdjacentClearanceMm,
+            tx->input.optimizerTemperatureMarginC, tx->input.optimizerMinEfficiencyPercent,
+            tx->input.optimizerMaxSpecificMassKgKva, tx->input.optimizerMaxNoLoadCurrentPercent,
+            tx->input.optimizerMaxTankVolumeM3);
         for (int i = 0; i < optimization->count; i++) {
             if (i) fputc(',', out);
             jsonOptimizationCandidate(out, &optimization->candidates[i]);
@@ -456,6 +471,13 @@ int writeJsonStream(const Transformer *tx, const OptimizationSet *optimization, 
             if (i) fputc(',', out);
             jsonString(out, keys[i]); fputc(':', out);
             if (optimization->criteriaWinners[i].serialNumber) jsonOptimizationCandidate(out, &optimization->criteriaWinners[i]);
+            else fputs("null", out);
+        }
+        fputs("},\"calculatedCriteriaWinners\":{", out);
+        for (int i = 0; i < OPTIMIZATION_CRITERIA_COUNT; i++) {
+            if (i) fputc(',', out);
+            jsonString(out, keys[i]); fputc(':', out);
+            if (optimization->calculatedCriteriaWinners[i].serialNumber) jsonOptimizationCandidate(out, &optimization->calculatedCriteriaWinners[i]);
             else fputs("null", out);
         }
         fputs("}}\n", out);

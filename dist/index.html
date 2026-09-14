@@ -142,6 +142,27 @@
           <div class="objective-note"><span>Balanced objective</span><p>Retains physically feasible Pareto candidates, then recommends the best normalized balance of loss, mass and material index.</p></div>
         </section>
 
+        <section class="config-card config-wide" data-config-modes="optimize">
+          <div class="config-card-head"><span>02</span><div><h2>Set feasibility limits</h2><p>The textbook objectives are configurable gates. Its four requested selections are still reported from every calculated variant.</p></div></div>
+          <div class="constraint-fields">
+            <label class="field"><span>Minimum efficiency <small>% · full load, 0.85 PF</small></span><input id="optMinEff" type="number" min="1" max="99.999" step="0.1" value="98"></label>
+            <label class="field"><span>Maximum active mass <small>kg/kVA</small></span><input id="optMaxMass" type="number" min="0.1" step="0.1" value="4"></label>
+            <label class="field"><span>Maximum I₀/I₂ <small>%</small></span><input id="optMaxI0" type="number" min="0.01" step="0.05" value="1"></label>
+            <label class="field"><span>Maximum tank volume <small>m³</small></span><input id="optMaxTank" type="number" min="0.01" step="0.1" value="1.5"></label>
+          </div>
+          <details class="constraint-details">
+            <summary>Physical-fit guardrails <span>Relaxed project defaults</span></summary>
+            <div class="constraint-fields">
+              <label class="field"><span>Actual current density <small>minimum A/mm²</small></span><input id="optActualCdMin" type="number" min="0.1" step="0.05" value="2.15"></label>
+              <label class="field"><span>Actual current density <small>maximum A/mm²</small></span><input id="optActualCdMax" type="number" min="0.1" step="0.1" value="3.6"></label>
+              <label class="field"><span>Minimum axial slack <small>mm</small></span><input id="optMinSlack" type="number" min="0" step="1" value="0"></label>
+              <label class="field"><span>Minimum adjacent gap <small>mm</small></span><input id="optMinClearance" type="number" min="0" step="1" value="0"></label>
+              <label class="field"><span>Temperature tolerance <small>°C above target</small></span><input id="optTempMargin" type="number" min="0" step="0.1" value="0.5"></label>
+            </div>
+          </details>
+          <p class="field-note">Zero clearance or slack means components may touch but cannot overlap. The stricter 7 mm and 15 mm academic checks remain visible in the engineering review.</p>
+        </section>
+
         <section class="config-card" data-config-modes="nominal explore optimize">
           <div class="config-card-head"><span>02</span><div><h2>Nameplate</h2><p>Rating and electrical system.</p></div></div>
           <div class="field-grid">

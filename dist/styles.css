@@ -552,6 +552,11 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 }
 .candidate-grid { margin-top: 10px; }
 .candidate-item.recommended { border-color: rgba(121,168,255,.32); background: rgba(121,168,255,.07); }
+.constraint-fields { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.constraint-details { margin-top: 16px; border-top: 1px solid var(--line); }
+.constraint-details summary { display: flex; justify-content: space-between; gap: 16px; padding: 18px 0 4px; color: var(--text); font-size: 13px; cursor: pointer; }
+.constraint-details summary span { color: var(--muted); font-size: 11px; }
+.constraint-details[open] summary { margin-bottom: 12px; }
 
 /* Optimal search comparison: full table in results, five rows per presentation slide. */
 .optimization-comparison { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line); }
@@ -572,6 +577,8 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 .criterion-value { font-size: 32px; font-weight: 620; letter-spacing: -.04em; }
 .criterion-value small { font-size: 14px; font-weight: 400; letter-spacing: 0; }
 .criterion-card p:not(.kicker), .criterion-card > small, .balanced-summary p:not(.kicker) { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.criterion-status { display: block; margin-top: 15px; font: 11px var(--mono); }
+.criterion-failure { display: block; margin-top: 6px; color: #ff9aa8 !important; }
 .balanced-summary { margin-top: 24px; padding: 24px; border: 1px solid rgba(121,168,255,.25); border-radius: 22px; background: rgba(121,168,255,.05); }
 .balanced-summary dl { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 18px 0 0; }
 .balanced-summary dt { color: var(--muted); font-size: 11px; }
@@ -584,6 +591,7 @@ input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgb
 .optimal-slide .criterion-card, .optimal-slide .balanced-summary { margin: 0; padding: clamp(16px,3vh,32px); }
 
 @media (max-width: 700px) {
+  .constraint-fields { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .comparison-header { align-items: start; flex-direction: column; }
   .criteria-grid { grid-template-columns: 1fr; }
   .balanced-summary dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
