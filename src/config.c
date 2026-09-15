@@ -176,7 +176,6 @@ void setDefaultConfiguration(Transformer *tx)
     in->copperCostIndex = 8.0; in->coreSteelCostIndex = 2.4;
     in->tankSteelCostIndex = 1.2; in->oilCostIndex = 1.0;
     in->automaticConductorSizing = false;
-    in->optimizationProfile = OPTIMIZATION_ENGINEERING;
 }
 
 int applyConfigurationValue(Transformer *tx, const char *key, const char *rawValue)
@@ -192,17 +191,6 @@ int applyConfigurationValue(Transformer *tx, const char *key, const char *rawVal
     if (textEquals(key, "COOLING_METHOD")) {
         snprintf(tx->input.cooling, sizeof(tx->input.cooling), "%s", value);
         return 0;
-    }
-    if (textEquals(key, "OPTIMIZER_PROFILE")) {
-        if (textEquals(value, "TEXTBOOK") || textEquals(value, "MATLAB") || textEquals(value, "ACADEMIC")) {
-            tx->input.optimizationProfile = OPTIMIZATION_TEXTBOOK;
-            return 0;
-        }
-        if (textEquals(value, "ENGINEERING") || textEquals(value, "PRODUCTION")) {
-            tx->input.optimizationProfile = OPTIMIZATION_ENGINEERING;
-            return 0;
-        }
-        return -1;
     }
 
     for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
@@ -230,8 +218,6 @@ void writeNumericConfiguration(const Transformer *tx, FILE *out)
             fields[i].type == INPUT_INT ? *(const int *)value : *(const bool *)value;
         fprintf(out, "\"%s\":%.17g,", fields[i].key, number);
     }
-    fprintf(out, "\"OPTIMIZER_PROFILE\":\"%s\",",
-        tx->input.optimizationProfile == OPTIMIZATION_TEXTBOOK ? "textbook" : "engineering");
 }
 
 int loadConfiguration(Transformer *tx, const char *filename)

@@ -46,7 +46,7 @@ const defaults = {
   OPTIMIZER_MIN_AXIAL_SLACK_MM: 0, OPTIMIZER_MIN_ADJACENT_CLEARANCE_MM: 0,
   OPTIMIZER_TEMPERATURE_MARGIN_C: 0.5, OPTIMIZER_MIN_EFFICIENCY_PERCENT: 98,
   OPTIMIZER_MAX_SPECIFIC_MASS_KG_KVA: 4, OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT: 1,
-  OPTIMIZER_MAX_TANK_VOLUME_M3: 1.5, OPTIMIZER_PROFILE: 'engineering'
+  OPTIMIZER_MAX_TANK_VOLUME_M3: 1.5
 };
 
 const modeCopy = {
@@ -181,7 +181,6 @@ function resetInputs() {
   setInput('optMaxMass', defaults.OPTIMIZER_MAX_SPECIFIC_MASS_KG_KVA);
   setInput('optMaxI0', defaults.OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT);
   setInput('optMaxTank', defaults.OPTIMIZER_MAX_TANK_VOLUME_M3);
-  setInput('optProfile', defaults.OPTIMIZER_PROFILE);
   $('autoSizing').checked = false;
   updateSearchCount();
 }
@@ -202,7 +201,6 @@ function syncInputsFromResult(data) {
   setInput('emfK', data.assumptions?.emfValueFactor);
   if (data.configuration) {
     Object.entries(extraSearchFields).forEach(([id, key]) => setInput(id, data.configuration[key]));
-    setInput('optProfile', data.configuration.OPTIMIZER_PROFILE);
     $('autoSizing').checked = Boolean(data.configuration.AUTOMATIC_CONDUCTOR_SIZING);
   }
   updateSearchCount();
@@ -255,8 +253,7 @@ function overrides() {
     OPTIMIZER_MIN_EFFICIENCY_PERCENT: $('optMinEff').value,
     OPTIMIZER_MAX_SPECIFIC_MASS_KG_KVA: $('optMaxMass').value,
     OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT: $('optMaxI0').value,
-    OPTIMIZER_MAX_TANK_VOLUME_M3: $('optMaxTank').value,
-    OPTIMIZER_PROFILE: $('optProfile').value
+    OPTIMIZER_MAX_TANK_VOLUME_M3: $('optMaxTank').value
   };
 }
 
@@ -431,7 +428,7 @@ function renderOptimization(data) {
   if (currentMode !== 'optimize' || !optimization) return;
   const candidates = optimization.candidates || [];
   const recommended = candidates[optimization.recommendedIndex ?? 0] || candidates[0];
-  $('candidateCount').textContent = optimization.profile === 'textbook' ? '4 criteria' : `${candidates.length} retained`;
+  $('candidateCount').textContent = `${candidates.length} retained`;
   if (recommended) {
     const baselineLoss = Number(data.summary?.totalLossW);
     const baselineMass = Number(data.sections?.tank?.activeMassKg);
@@ -445,8 +442,6 @@ function renderOptimization(data) {
         <div><dt>Efficiency</dt><dd>${number(recommended.efficiencyPercent, 3)}% <small>${number(recommended.impedancePercent, 3)}% impedance</small></dd></div>
       </dl>
       <button id="applyRecommended" class="apply-recommendation" type="button">Run balanced design <span>→</span></button>`;
-  } else if (optimization.profile === 'textbook') {
-    $('optimizationLead').innerHTML = '<div class="recommendation-copy"><span>TEXTBOOK / MATLAB PROFILE</span><h3>Four independent winners below</h3><p>This mode intentionally follows the lecturer\'s selection method. It does not replace the four objective winners with one balanced recommendation.</p></div>';
   } else {
     $('optimizationLead').innerHTML = '<p class="empty-copy">No feasible recommendation was returned for this search space.</p>';
   }
@@ -480,11 +475,6 @@ async function runSelectedVariant(serial) {
 
 function renderResult(data, syncInputs = false) {
   lastResult = data;
-  const runId = data?.meta?.runId;
-  const textLink = $('textReportLink');
-  const jsonLink = $('jsonReportLink');
-  if (textLink) textLink.href = runId ? `/api/runs/${encodeURIComponent(runId)}/output.txt` : '/api/output.txt';
-  if (jsonLink) jsonLink.href = runId ? `/api/runs/${encodeURIComponent(runId)}/output.json` : '/api/output.json';
   if (syncInputs) syncInputsFromResult(data);
   renderDashboardHeader(data);
   renderHeroMetrics(data);

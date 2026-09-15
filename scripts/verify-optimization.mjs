@@ -77,12 +77,6 @@ assert.equal(empty.recommendedIndex, -1);
 assert.equal(empty.samples.length, 15);
 assert.deepEqual(Object.values(empty.criteriaWinners), [null, null, null, null]);
 assert.deepEqual(empty.candidates, []);
-const textbook = run(['--mode', 'optimize', '--set', 'OPTIMIZER_PROFILE=textbook']).optimization;
-assert.equal(textbook.profile, 'textbook');
-assert.equal(textbook.recommendedIndex, -1);
-assert.deepEqual(textbook.candidates, []);
-assert.equal(textbook.paretoCount, 0);
-assert.ok(textbook.feasibleDesigns > 0, 'Textbook profile should retain lecturer-style feasible rows for the default search');
 const context = { window: {} };
 vm.runInNewContext(fs.readFileSync(path.join(root, 'dist/optimization.js'), 'utf8'), context);
 const ui = context.window.TX_OPTIMIZATION;
@@ -91,7 +85,7 @@ assert.equal((ui.render(o).match(/<tr/g) || []).length, 32);
 assert.match(ui.render(empty), /CALCULATED/);
 assert.match(ui.render(empty), /No balanced recommendation/);
 assert.match(ui.render({}), /Run Optimal again/);
-for (const result of [o, empty, textbook]) for (const slide of ui.section(result).slides) {
+for (const result of [o, empty]) for (const slide of ui.section(result).slides) {
   assert.ok(ui.slide(slide, result).includes('<h2>'));
   assert.doesNotMatch(ui.slide(slide, result), /undefined|NaN/);
 }

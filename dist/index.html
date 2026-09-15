@@ -51,11 +51,11 @@
       <div class="dashboard-context">
         <div><span id="contextLabel">Design setup</span><strong id="scenarioTitle">Configured design</strong></div>
         <p id="scenarioSummary">Inputs are controlled directly from the configuration page.</p>
-        <div class="report-links"><a id="textReportLink" href="/api/output.txt" target="_blank" rel="noreferrer">Text report</a><a id="jsonReportLink" href="/api/output.json" target="_blank" rel="noreferrer">JSON</a></div>
+        <div class="report-links"><a href="/api/output.txt" target="_blank" rel="noreferrer">Text report</a><a href="/api/output.json" target="_blank" rel="noreferrer">JSON</a></div>
       </div>
 
       <section id="optimizationSection" class="optimization-card" hidden>
-        <header><div><p class="kicker">OPTIMAL DESIGN RESULTS</p><h2>Design priority comparison</h2></div><strong id="candidateCount">—</strong></header>
+        <header><div><p class="kicker">RECOMMENDED DESIGN</p><h2>Balanced Pareto candidate</h2></div><strong id="candidateCount">—</strong></header>
         <div id="optimizationLead" class="optimization-lead"></div>
         <div id="optimizationResults" class="candidate-grid"></div>
         <div id="optimizationComparison" class="optimization-comparison"></div>
@@ -147,8 +147,6 @@
             <label class="field"><span>Window-ratio values</span><input id="optAspectSteps" type="number" min="1" max="5000" step="1" value="6"></label>
           </div><p class="field-note">One value fixes that variable at its minimum. The total search is capped at 5,000 combinations. H/W is L/(D−d), the ratio used in the core-type textbook program.</p></details>
           <div class="objective-note"><span>Choose by objective</span><p>Every feasible variant competes for the four textbook criteria. A balanced Pareto choice is also available.</p></div>
-          <label class="field profile-select"><span>Optimization profile</span><select id="optProfile"><option value="engineering">Engineering / production guardrails</option><option value="textbook">Textbook / MATLAB acceptance gate</option></select></label>
-          <p class="field-note">Engineering mode applies the project's thermal, fit, current-density, mass and tank limits, then offers a balanced Pareto choice. Textbook mode mirrors the lecturer's core-type loop: L/(D−d), I0/I2, 7 mm slack and 98.5% efficiency, with four independent winners.</p>
         </section>
 
         <section class="config-card config-wide" data-config-modes="optimize">
