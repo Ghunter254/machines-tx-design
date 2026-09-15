@@ -36,36 +36,40 @@ window.TX_OPTIMIZATION = (() => {
     return `<details class="constraint-details"><summary>Dimensions and winding results <span>Remaining textbook columns</span></summary><p class="comparison-note">d, L, D and W in metres; cdLV and cdHV in A/mm²; Reg at full load, 0.85 PF. Nt is the number of cooling tubes. These are the same sampled serial numbers.</p><div class="variant-table-wrap"><table class="variant-table"><thead><tr><th>Sn</th>${columns.map(([, label]) => `<th>${label}</th>`).join('')}</tr></thead><tbody>${rows.map(c => `<tr><th>${c.serialNumber}</th>${columns.map(([key]) => `<td>${fmt(c[key], key === 'coolingTubes' ? 0 : 3)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
   }
   function balanced(optimization) {
+    if (optimization.profile === 'textbook') return '<div class="balanced-summary"><div><p class="kicker">TEXTBOOK / MATLAB MODE</p><h3>Four independent selections</h3><p>This profile intentionally does not collapse the search into one balanced Pareto recommendation. Use the four criterion cards above: efficiency, active kg/kVA, I₀/I₂ or tank volume.</p></div></div>';
     const c = optimization.candidates?.[optimization.recommendedIndex];
     if (!c) return '<p class="empty-copy">No balanced recommendation: none of the evaluated variants passed every implemented hard constraint.</p>';
     return `<div class="balanced-summary"><div><p class="kicker">BALANCED PARETO CHOICE</p><h3>Select variant ${c.serialNumber}</h3><p>${inputs(c)}</p></div><dl><div><dt>Total loss</dt><dd>${fmt(c.totalLossW / 1000)} kW</dd></div><div><dt>Active mass</dt><dd>${fmt(c.activeMassKg, 1)} kg</dd></div><div><dt>Cost index</dt><dd>${fmt(c.materialCostIndex, 1)}</dd></div><div><dt>Balance score</dt><dd>${fmt(c.balanceScore, 4)}</dd></div></dl></div>`;
   }
   const balanceExplanation = 'Loss, active mass and material cost index are each normalized over the full feasible Pareto set. The smallest equal-weight distance to the ideal point is selected. This is a model-based compromise, not a unique universal optimum.';
-  const qualification = 'Feasible means the configured physical-fit and objective limits passed. Kenya Power benchmark compliance is separate; a recommendation is not a manufacturing approval.';
+  const qualificationFor = optimization => optimization?.profile === 'textbook'
+    ? 'Feasible means the lecturer’s five core-type checks passed: L/(D−d), I₀/I₂, LV/HV slack and 0.85-PF efficiency. Kenya Power benchmark compliance is separate; a selection is not manufacturing approval.'
+    : 'Feasible means the configured physical-fit and objective limits passed. Kenya Power benchmark compliance is separate; a recommendation is not a manufacturing approval.';
   function render(optimization) {
     if (!optimization.samples) return '<p class="empty-copy">Run Optimal again after updating the backend to generate the variant comparison.</p>';
-    return `<header class="comparison-header"><div><p class="kicker">DESIGN VARIANT COMPARISON</p><h2>Choose for your priority</h2></div><button id="presentOptimization" type="button" class="soft-button">Present comparison ↗</button></header>
+    const textbook = optimization.profile === 'textbook';
+    return `<header class="comparison-header"><div><p class="kicker">DESIGN VARIANT COMPARISON · ${textbook ? 'TEXTBOOK / MATLAB' : 'ENGINEERING / PRODUCTION'}</p><h2>${textbook ? 'Independent textbook selections' : 'Choose for your priority'}</h2></div><button id="presentOptimization" type="button" class="soft-button">Present comparison ↗</button></header>
       <p class="comparison-note">${optimization.samples.length} evenly spaced attempts out of ${optimization.evaluatedDesigns}; ${optimization.calculatedDesigns ?? optimization.evaluatedDesigns} calculated; ${optimization.feasibleDesigns} feasible. Serial numbers are original search IDs, not ranks. Bm in T; J in A/mm²; H/W is the target window ratio.</p>
       ${table(optimization.samples)}
       ${geometryTable(optimization.samples)}
-      <p class="comparison-note">Efficiency is at full load and 0.85 PF, using the configured loss reference temperature. kg/kVA uses the C model’s active-mass accounting. The four selections below consider every feasible attempt, including variants outside this 15-row sample.</p>
+      <p class="comparison-note">Efficiency is at full load and 0.85 PF, using the configured loss reference temperature. kg/kVA uses the C model’s active-mass accounting. The four selections below consider every feasible attempt, including variants outside this 15-row sample. ${textbook ? 'The acceptance gate mirrors the lecturer\'s core-type MATLAB checks.' : 'Engineering mode also applies the configured physical guardrails.'}</p>
       <div class="criteria-grid">${criteria.map(c => winnerCard(c, optimization)).join('')}</div>
-      <p class="comparison-note">The four textbook selections consider all feasible rows, following core-type §5.2.9–5.2.10. If none are feasible, calculated results are labelled diagnostic. Exact ties use the earliest serial; displayed rounding may hide small differences.</p>
-      ${balanced(optimization)}<p class="comparison-note">${balanceExplanation}</p><p class="comparison-note">${qualification}</p>`;
+      <p class="comparison-note">The four criterion selections consider all feasible rows, following core-type §5.2.9–5.2.10. If none are feasible, calculated results are labelled diagnostic. Exact ties use the earliest serial; displayed rounding may hide small differences.</p>
+      ${balanced(optimization)}<p class="comparison-note">${balanceExplanation}</p><p class="comparison-note">${qualificationFor(optimization)}</p>`;
   }
   function section(optimization) {
     if (!optimization?.samples) return null;
-    return { id: 'optimization', number: '07', owner: 'Optimal design', title: 'Design variant comparison', source: 'Textbook §5.2.10 · C search results',
+    return { id: 'optimization', number: '07', owner: 'Optimal design', title: 'Design variant comparison', source: `Textbook §5.2.10 · ${optimization.profile === 'textbook' ? 'MATLAB profile' : 'engineering profile'}`,
       slides: [...Array.from({ length: Math.ceil(optimization.samples.length / 5) }, (_, page) => ({ kind: 'table', page })), ...criteria.map(criterion => ({ kind: 'criterion', criterion })), { kind: 'balance' }] };
   }
   function slide(slide, optimization) {
     if (slide.kind === 'table') {
       const start = slide.page * 5;
       const rows = optimization.samples.slice(start, start + 5);
-      return `<p class="kicker">EVENLY SPACED SEARCH SAMPLE · ${start + 1}–${start + rows.length} OF ${optimization.samples.length}</p><h2>Comparing the variants</h2>${table(rows, true)}<p class="comparison-note">Full load · 0.85 PF. Bm [T] / J [A/mm²] / H:W target. “No” excludes a variant from the balanced Pareto recommendation; it is used for a textbook-priority fallback only when no row passes the configured gate, and will be labelled not feasible. ${optimization.feasibleDesigns} of ${optimization.evaluatedDesigns} attempts passed the configured gate.</p>`;
+      return `<p class="kicker">EVENLY SPACED SEARCH SAMPLE · ${start + 1}–${start + rows.length} OF ${optimization.samples.length}</p><h2>Comparing the variants</h2>${table(rows, true)}<p class="comparison-note">Full load · 0.85 PF. Bm [T] / J [A/mm²] / H:W target. ${optimization.profile === 'textbook' ? '“No” means the lecturer-style acceptance gate failed.' : '“No” excludes a variant from the balanced Pareto recommendation.'} ${optimization.feasibleDesigns} of ${optimization.evaluatedDesigns} attempts passed the configured gate.</p>`;
     }
-    if (slide.kind === 'criterion') return `<p class="kicker">SELECTION BY DESIGN PRIORITY</p><h2>${slide.criterion.title}</h2>${winnerCard(slide.criterion, optimization)}<p class="comparison-note">${slide.criterion.meaning}</p><p class="comparison-note">The textbook selection is from feasible rows. If the feasible set is empty, this slide presents the best calculated row and states why it is not feasible. Exact ties use the earliest serial. ${qualification}</p>`;
-    return `<p class="kicker">THE BALANCED RECOMMENDATION</p><h2>Bringing the trade-offs together</h2>${balanced(optimization)}<p class="comparison-note">${balanceExplanation}</p><p class="comparison-note">${qualification}</p>`;
+    if (slide.kind === 'criterion') return `<p class="kicker">SELECTION BY DESIGN PRIORITY</p><h2>${slide.criterion.title}</h2>${winnerCard(slide.criterion, optimization)}<p class="comparison-note">${slide.criterion.meaning}</p><p class="comparison-note">The selection is from feasible rows. If the feasible set is empty, this slide presents the best calculated row and states why it is not feasible. Exact ties use the earliest serial. ${qualificationFor(optimization)}</p>`;
+    return `<p class="kicker">${optimization.profile === 'textbook' ? 'TEXTBOOK SELECTION SUMMARY' : 'THE BALANCED RECOMMENDATION'}</p><h2>${optimization.profile === 'textbook' ? 'Select by the required objective' : 'Bringing the trade-offs together'}</h2>${balanced(optimization)}<p class="comparison-note">${optimization.profile === 'textbook' ? 'The lecturer’s output presents four valid choices because “optimal” depends on the design priority.' : balanceExplanation}</p><p class="comparison-note">${qualificationFor(optimization)}</p>`;
   }
   return { render, section, slide, findVariant, replayOverrides };
 })();

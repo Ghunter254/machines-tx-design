@@ -13,6 +13,10 @@
 
 typedef enum { CONNECTION_STAR = 0, CONNECTION_DELTA = 1 } ConnectionKind;
 typedef enum { RUN_NOMINAL = 0, RUN_EXPLORE = 1, RUN_OPTIMIZE = 2 } RunMode;
+/* The engineering profile applies the project's physical guardrails.  The
+ * textbook profile mirrors the lecturer's core-type MATLAB acceptance gate:
+ * it is intentionally looser and keeps the four objective winners separate. */
+typedef enum { OPTIMIZATION_ENGINEERING = 0, OPTIMIZATION_TEXTBOOK = 1 } OptimizationProfile;
 typedef enum {
     SECTION_FRAME = 1 << 0,
     SECTION_NO_LOAD = 1 << 1,
@@ -71,6 +75,7 @@ typedef struct
     double optimizerMaxNoLoadCurrentPercent, optimizerMaxTankVolumeM3;
     double copperCostIndex, coreSteelCostIndex, tankSteelCostIndex, oilCostIndex;
     bool automaticConductorSizing;
+    OptimizationProfile optimizationProfile;
 } DesignInputs;
 
 typedef struct
@@ -165,6 +170,7 @@ typedef struct
     OptimizationCandidate calculatedCriteriaWinners[OPTIMIZATION_CRITERIA_COUNT];
     int sampleCount, calculatedDesigns, paretoCount;
     int count, feasibleDesigns, evaluatedDesigns, recommendedIndex;
+    OptimizationProfile profile;
 } OptimizationSet;
 
 const char *connectionName(ConnectionKind connection);

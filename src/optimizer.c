@@ -10,6 +10,19 @@ static double gridValue(double min, double max, int index, int count)
     return count == 1 ? min : min + (max - min) * index / (count - 1);
 }
 
+static int isTextbookFeasible(const Transformer *tx)
+{
+    /* This is deliberately the lecturer's core-type MATLAB gate.  It does
+     * not impose the production-only thermal, mass, clearance or actual-J
+     * guardrails; those remain in the engineering profile below. */
+    const MagneticFrame *frame = &tx->magneticFrame;
+    return isfinite(tx->performance.cases[1].efficiency) &&
+        frame->windowRatio > 2.5 && frame->windowRatio <= 4.0 &&
+        tx->noLoadCurrent.I0byI2 < 3.0 &&
+        tx->lv.SlkAx > 7.0 && tx->hv.SlkAx > 7.0 &&
+        tx->performance.cases[1].efficiency > 98.5;
+}
+
 static int isSafeFeasible(const Transformer *tx)
 {
     const DesignInputs *in = &tx->input;
@@ -25,6 +38,12 @@ static int isSafeFeasible(const Transformer *tx)
         tx->tank.KgPkva <= in->optimizerMaxSpecificMassKgKva &&
         tx->noLoadCurrent.I0byI2 <= in->optimizerMaxNoLoadCurrentPercent &&
         tx->tank.Vt <= in->optimizerMaxTankVolumeM3;
+}
+
+static int isFeasible(const Transformer *tx)
+{
+    return tx->input.optimizationProfile == OPTIMIZATION_TEXTBOOK
+        ? isTextbookFeasible(tx) : isSafeFeasible(tx);
 }
 
 static int benchmarkPassCount(const Transformer *tx)
@@ -74,7 +93,7 @@ static void summarize(const Transformer *tx, int serial, int calculated, Optimiz
         strcpy(c->constraintFailures, "Calculation failed or non-finite output");
         return;
     }
-    c->feasible = isSafeFeasible(tx);
+    c->feasible = isFeasible(tx);
     c->totalLossW = tx->performance.ptFL * 1000.0;
     c->activeMassKg = tx->tank.Wtot;
     c->materialCostIndex = tx->tankDerived.materialCostIndex;
@@ -93,18 +112,26 @@ static void summarize(const Transformer *tx, int serial, int calculated, Optimiz
     c->regulationPercent = tx->performance.Reg85 * 100.0;
     c->coolingTubes = (int)tx->tank.Nt;
 #define FAILURE(condition, label) if (!(condition)) strcat(c->constraintFailures, label "; ")
-    FAILURE(tx->lv.cd >= tx->input.optimizerActualCurrentDensityMin && tx->lv.cd <= tx->input.optimizerActualCurrentDensityMax, "LV current density");
-    FAILURE(tx->hv.cd >= tx->input.optimizerActualCurrentDensityMin && tx->hv.cd <= tx->input.optimizerActualCurrentDensityMax, "HV current density");
-    FAILURE(tx->lv.SlkAx >= tx->input.optimizerMinAxialSlackMm, "LV axial fit");
-    FAILURE(tx->hv.SlkAx >= tx->input.optimizerMinAxialSlackMm, "HV axial fit");
-    FAILURE(tx->hv.endCoilTurns > 0.0, "HV end-coil turns");
-    FAILURE(tx->magneticFrame.D * 1000.0 - tx->hv.do_ >= tx->input.optimizerMinAdjacentClearanceMm, "Winding overlap");
-    FAILURE(tx->tank.TrWithTubes <= tx->input.TRP + tx->input.optimizerTemperatureMarginC, "Cooled temperature rise");
-    FAILURE(tx->tankDerived.Voil > 0.0, "Oil volume");
-    FAILURE(tx->performance.cases[1].efficiency >= tx->input.optimizerMinEfficiencyPercent, "Minimum efficiency");
-    FAILURE(tx->tank.KgPkva <= tx->input.optimizerMaxSpecificMassKgKva, "Maximum kg/kVA");
-    FAILURE(tx->noLoadCurrent.I0byI2 <= tx->input.optimizerMaxNoLoadCurrentPercent, "Maximum I0/I2");
-    FAILURE(tx->tank.Vt <= tx->input.optimizerMaxTankVolumeM3, "Maximum tank volume");
+    if (tx->input.optimizationProfile == OPTIMIZATION_TEXTBOOK) {
+        FAILURE(tx->magneticFrame.windowRatio > 2.5 && tx->magneticFrame.windowRatio <= 4.0, "L/(D-d) outside 2.5..4.0");
+        FAILURE(tx->noLoadCurrent.I0byI2 < 3.0, "I0/I2 >= 3%");
+        FAILURE(tx->lv.SlkAx > 7.0, "LV axial slack <= 7 mm");
+        FAILURE(tx->hv.SlkAx > 7.0, "HV axial slack <= 7 mm");
+        FAILURE(tx->performance.cases[1].efficiency > 98.5, "Efficiency <= 98.5%");
+    } else {
+        FAILURE(tx->lv.cd >= tx->input.optimizerActualCurrentDensityMin && tx->lv.cd <= tx->input.optimizerActualCurrentDensityMax, "LV current density");
+        FAILURE(tx->hv.cd >= tx->input.optimizerActualCurrentDensityMin && tx->hv.cd <= tx->input.optimizerActualCurrentDensityMax, "HV current density");
+        FAILURE(tx->lv.SlkAx >= tx->input.optimizerMinAxialSlackMm, "LV axial fit");
+        FAILURE(tx->hv.SlkAx >= tx->input.optimizerMinAxialSlackMm, "HV axial fit");
+        FAILURE(tx->hv.endCoilTurns > 0.0, "HV end-coil turns");
+        FAILURE(tx->magneticFrame.D * 1000.0 - tx->hv.do_ >= tx->input.optimizerMinAdjacentClearanceMm, "Winding overlap");
+        FAILURE(tx->tank.TrWithTubes <= tx->input.TRP + tx->input.optimizerTemperatureMarginC, "Cooled temperature rise");
+        FAILURE(tx->tankDerived.Voil > 0.0, "Oil volume");
+        FAILURE(tx->performance.cases[1].efficiency >= tx->input.optimizerMinEfficiencyPercent, "Minimum efficiency");
+        FAILURE(tx->tank.KgPkva <= tx->input.optimizerMaxSpecificMassKgKva, "Maximum kg/kVA");
+        FAILURE(tx->noLoadCurrent.I0byI2 <= tx->input.optimizerMaxNoLoadCurrentPercent, "Maximum I0/I2");
+        FAILURE(tx->tank.Vt <= tx->input.optimizerMaxTankVolumeM3, "Maximum tank volume");
+    }
 #undef FAILURE
 }
 
@@ -121,6 +148,7 @@ int runOptimization(const Transformer *baseline, OptimizationSet *set)
     int poolCount = 0;
     memset(set, 0, sizeof(*set));
     set->recommendedIndex = -1;
+    set->profile = baseline->input.optimizationProfile;
 
     const DesignInputs *bounds = &baseline->input;
     const double requested = (double)bounds->optimizerKSteps * bounds->optimizerBmSteps *
@@ -177,6 +205,18 @@ int runOptimization(const Transformer *baseline, OptimizationSet *set)
     }
 
     if (poolCount == 0) { free(pool); free(frontier); free(pareto); return -1; }
+
+    /* The textbook program reports independent extrema, not one balanced
+     * Pareto choice.  Keep the calculated rows and criterion winners in the
+     * JSON/text report, but do not present an engineering recommendation for
+     * this profile. */
+    if (bounds->optimizationProfile == OPTIMIZATION_TEXTBOOK) {
+        set->paretoCount = 0;
+        set->count = 0;
+        set->recommendedIndex = -1;
+        free(pool); free(frontier); free(pareto);
+        return 0;
+    }
     int paretoCount = 0;
     for (int i = 0; i < poolCount; i++) {
         int dominated = 0;

@@ -206,16 +206,28 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
 
     if (optimization) {
         fprintf(out, "\nOPTIMAL DESIGN COMPARISON - TEXTBOOK CRITERIA\n--------------------------------------------\n");
+        fprintf(out, "Optimization profile: %s (%s)\n",
+            optimization->profile == OPTIMIZATION_TEXTBOOK ? "TEXTBOOK / MATLAB" : "ENGINEERING / PRODUCTION",
+            optimization->profile == OPTIMIZATION_TEXTBOOK
+                ? "lecturer-style core-type gate; independent criterion winners"
+                : "project physical guardrails plus Pareto balance");
         fprintf(out, "%d evenly spaced attempts from %d evaluated (%d calculated, %d feasible). Original serial numbers retained.\n",
             optimization->sampleCount, optimization->evaluatedDesigns, optimization->calculatedDesigns, optimization->feasibleDesigns);
         fprintf(out, "Efficiency: full load, 0.85 PF, configured loss reference temperature. Mass: model active mass, excluding tank/oil.\n");
-        fprintf(out, "Configured objective limits: efficiency >= %.3f%%, kg/kVA <= %.3f, I0/I2 <= %.3f%%, tank <= %.3f m3.\n",
-            tx->input.optimizerMinEfficiencyPercent, tx->input.optimizerMaxSpecificMassKgKva,
-            tx->input.optimizerMaxNoLoadCurrentPercent, tx->input.optimizerMaxTankVolumeM3);
-        fprintf(out, "Physical gate: actual J %.3f..%.3f A/mm2, axial slack >= %.3f mm, adjacent gap >= %.3f mm, rise <= target + %.3f C.\n",
-            tx->input.optimizerActualCurrentDensityMin, tx->input.optimizerActualCurrentDensityMax,
-            tx->input.optimizerMinAxialSlackMm, tx->input.optimizerMinAdjacentClearanceMm,
-            tx->input.optimizerTemperatureMarginC);
+        if (optimization->profile == OPTIMIZATION_TEXTBOOK)
+            fprintf(out, "Engineering objective limits are recorded for comparison but are not used by this textbook gate.\n");
+        else
+            fprintf(out, "Configured objective limits: efficiency >= %.3f%%, kg/kVA <= %.3f, I0/I2 <= %.3f%%, tank <= %.3f m3.\n",
+                tx->input.optimizerMinEfficiencyPercent, tx->input.optimizerMaxSpecificMassKgKva,
+                tx->input.optimizerMaxNoLoadCurrentPercent, tx->input.optimizerMaxTankVolumeM3);
+        if (optimization->profile == OPTIMIZATION_TEXTBOOK) {
+            fprintf(out, "Textbook gate: L/(D-d) > 2.5 and <= 4.0, I0/I2 < 3%%, LV/HV axial slack > 7 mm, efficiency > 98.5%%.\n");
+        } else {
+            fprintf(out, "Physical gate: actual J %.3f..%.3f A/mm2, axial slack >= %.3f mm, adjacent gap >= %.3f mm, rise <= target + %.3f C.\n",
+                tx->input.optimizerActualCurrentDensityMin, tx->input.optimizerActualCurrentDensityMax,
+                tx->input.optimizerMinAxialSlackMm, tx->input.optimizerMinAdjacentClearanceMm,
+                tx->input.optimizerTemperatureMarginC);
+        }
         fprintf(out, "Search: K %.4f..%.4f (%d), Bm %.3f..%.3f (%d), J %.3f..%.3f (%d), L/(D-d) target %.3f..%.3f (%d).\n",
             tx->input.optimizerKMin, tx->input.optimizerKMax, tx->input.optimizerKSteps,
             tx->input.optimizerBmMin, tx->input.optimizerBmMax, tx->input.optimizerBmSteps,
@@ -232,7 +244,8 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
             fprintf(out, "%.3f %d %s\n", c->regulationPercent, c->coolingTubes, c->feasible ? "FEASIBLE" : c->constraintFailures);
         }
         static const char *criteria[] = {"Maximum efficiency (full load, 0.85 PF)", "Minimum active kg/kVA", "Minimum I0/I2 (%)", "Minimum tank volume (m3)"};
-        fprintf(out, "\nTextbook selections prefer feasible variants; when none pass the configured gate, the best calculated attempt is shown as a diagnostic fallback. Exact ties choose the earliest serial.\n");
+        fprintf(out, "\n%s selections use independent extrema; when none pass the selected gate, the best calculated attempt is shown as a diagnostic fallback. Exact ties choose the earliest serial.\n",
+            optimization->profile == OPTIMIZATION_TEXTBOOK ? "Textbook/MATLAB" : "Engineering");
         for (int i = 0; i < OPTIMIZATION_CRITERIA_COUNT; i++) {
             const OptimizationCandidate *c = optimization->criteriaWinners[i].serialNumber
                 ? &optimization->criteriaWinners[i] : &optimization->calculatedCriteriaWinners[i];
@@ -246,7 +259,10 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
             fprintf(out, "Balanced Pareto: select variant Sn %d (score %.6f; loss %.3f W, active mass %.3f kg, cost index %.3f).\n",
                 c->serialNumber, c->balanceScore, c->totalLossW, c->activeMassKg, c->materialCostIndex);
         }
-        fprintf(out, "Feasible means the configured physical-fit and objective limits passed. The stricter 7 mm / 15 mm academic checks and local benchmarks remain separately visible.\n");
+        if (optimization->profile == OPTIMIZATION_TEXTBOOK)
+            fprintf(out, "Feasible means the lecturer's five core-type acceptance checks passed. This mode intentionally does not apply production thermal, mass, clearance or actual-J guardrails.\n");
+        else
+            fprintf(out, "Feasible means the configured physical-fit and objective limits passed. The lecturer's 7 mm / 3%% academic checks and local benchmarks remain separately visible.\n");
     }
 
     fprintf(out, "\nNOTES\n-----\n");
@@ -463,8 +479,10 @@ int writeJsonStream(const Transformer *tx, const OptimizationSet *optimization, 
     if (!optimization) {
         fputs("null\n", out);
     } else {
-        fprintf(out, "{\"evaluatedDesigns\":%d,\"calculatedDesigns\":%d,\"feasibleDesigns\":%d,\"paretoCount\":%d,\"recommendedIndex\":%d,\"comparisonPowerFactor\":0.85,\"comparisonLoadPu\":1,",
+        fprintf(out, "{\"evaluatedDesigns\":%d,\"calculatedDesigns\":%d,\"feasibleDesigns\":%d,\"paretoCount\":%d,\"recommendedIndex\":%d,\"profile\":",
             optimization->evaluatedDesigns, optimization->calculatedDesigns, optimization->feasibleDesigns, optimization->paretoCount, optimization->recommendedIndex);
+        jsonString(out, optimization->profile == OPTIMIZATION_TEXTBOOK ? "textbook" : "engineering");
+        fputs(",\"comparisonPowerFactor\":0.85,\"comparisonLoadPu\":1,", out);
         fprintf(out, "\"constraints\":{\"actualCurrentDensityMin\":%.10g,\"actualCurrentDensityMax\":%.10g,\"minimumAxialSlackMm\":%.10g,\"minimumAdjacentClearanceMm\":%.10g,\"temperatureMarginC\":%.10g,\"minimumEfficiencyPercent\":%.10g,\"maximumSpecificMassKgKva\":%.10g,\"maximumNoLoadCurrentPercent\":%.10g,\"maximumTankVolumeM3\":%.10g},\"candidates\":[",
             tx->input.optimizerActualCurrentDensityMin, tx->input.optimizerActualCurrentDensityMax,
             tx->input.optimizerMinAxialSlackMm, tx->input.optimizerMinAdjacentClearanceMm,
