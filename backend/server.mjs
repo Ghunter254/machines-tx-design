@@ -117,6 +117,16 @@ const server = http.createServer(async (req, res) => {
       try { return send(res, 200, await fs.readFile(path.join(data, 'output.txt')), 'text/plain; charset=utf-8'); }
       catch { return send(res, 404, 'No report yet', 'text/plain; charset=utf-8'); }
     }
+    const runReport = url.pathname.match(/^\/api\/runs\/([A-Za-z0-9-]+)\/(output\.txt|output\.json)$/);
+    if (req.method === 'GET' && runReport) {
+      const runId = runReport[1];
+      const filename = runReport[2];
+      const runRoot = path.resolve(runs, runId);
+      const target = path.resolve(runRoot, filename);
+      if (!target.startsWith(`${runRoot}${path.sep}`)) return send(res, 404, 'Report not found', 'text/plain; charset=utf-8');
+      try { return send(res, 200, await fs.readFile(target), filename.endsWith('.json') ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8'); }
+      catch { return send(res, 404, 'Report not found', 'text/plain; charset=utf-8'); }
+    }
     if (req.method === 'GET' && url.pathname === '/api/output.json') {
       try { return send(res, 200, await fs.readFile(path.join(data, 'output.json')), 'application/json; charset=utf-8'); }
       catch { return send(res, 404, 'No report yet', 'text/plain; charset=utf-8'); }

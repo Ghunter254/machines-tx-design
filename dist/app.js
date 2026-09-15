@@ -475,6 +475,11 @@ async function runSelectedVariant(serial) {
 
 function renderResult(data, syncInputs = false) {
   lastResult = data;
+  const runId = data?.meta?.runId;
+  const textLink = $('textReportLink');
+  const jsonLink = $('jsonReportLink');
+  if (textLink) textLink.href = runId ? `/api/runs/${encodeURIComponent(runId)}/output.txt` : '/api/output.txt';
+  if (jsonLink) jsonLink.href = runId ? `/api/runs/${encodeURIComponent(runId)}/output.json` : '/api/output.json';
   if (syncInputs) syncInputsFromResult(data);
   renderDashboardHeader(data);
   renderHeroMetrics(data);
