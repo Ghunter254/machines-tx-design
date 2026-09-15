@@ -133,17 +133,24 @@
         </section>
 
         <section class="config-card config-wide focus-config" data-config-modes="optimize">
-          <div class="config-card-head"><span>01</span><div><h2>Set the design search</h2><p>The optimizer evaluates 294 combinations and balances loss, active mass and relative material cost.</p></div></div>
+          <div class="config-card-head"><span>01</span><div><h2>Set the design search</h2><p id="searchCount">1,764 combinations. Choose a winner for efficiency, mass, no-load current or tank volume.</p></div></div>
           <div class="range-groups">
+            <fieldset><legend>Volts-per-turn factor <small>K</small></legend><div class="range-pair"><label class="field"><span>Minimum</span><input id="optKMin" type="number" min="0.01" step="0.01" value="0.6"></label><label class="field"><span>Maximum</span><input id="optKMax" type="number" min="0.01" step="0.01" value="0.65"></label></div></fieldset>
             <fieldset><legend>Flux density <small>T</small></legend><div class="range-pair"><label class="field"><span>Minimum</span><input id="optBmMin" type="number" min="0.5" step="0.05" value="1.4"></label><label class="field"><span>Maximum</span><input id="optBmMax" type="number" min="0.5" step="0.05" value="1.7"></label></div></fieldset>
             <fieldset><legend>Current density <small>A/mm²</small></legend><div class="range-pair"><label class="field"><span>Minimum</span><input id="optCdMin" type="number" min="0.5" step="0.1" value="2.3"></label><label class="field"><span>Maximum</span><input id="optCdMax" type="number" min="0.5" step="0.1" value="3.2"></label></div></fieldset>
             <fieldset><legend>Window ratio <small>H/W</small></legend><div class="range-pair"><label class="field"><span>Minimum</span><input id="optAspectMin" type="number" min="1" step="0.1" value="2.5"></label><label class="field"><span>Maximum</span><input id="optAspectMax" type="number" min="1" step="0.1" value="4.0"></label></div></fieldset>
           </div>
-          <div class="objective-note"><span>Balanced objective</span><p>Retains physically feasible Pareto candidates, then recommends the best normalized balance of loss, mass and material index.</p></div>
+          <details class="constraint-details"><summary>Search resolution <span>Number of values, including endpoints</span></summary><div class="constraint-fields">
+            <label class="field"><span>K values</span><input id="optKSteps" type="number" min="1" max="5000" step="1" value="6"></label>
+            <label class="field"><span>Bm values</span><input id="optBmSteps" type="number" min="1" max="5000" step="1" value="7"></label>
+            <label class="field"><span>Current-density values</span><input id="optCdSteps" type="number" min="1" max="5000" step="1" value="7"></label>
+            <label class="field"><span>Window-ratio values</span><input id="optAspectSteps" type="number" min="1" max="5000" step="1" value="6"></label>
+          </div><p class="field-note">One value fixes that variable at its minimum. The total search is capped at 5,000 combinations. H/W is L/(D−d), the ratio used in the core-type textbook program.</p></details>
+          <div class="objective-note"><span>Choose by objective</span><p>Every feasible variant competes for the four textbook criteria. A balanced Pareto choice is also available.</p></div>
         </section>
 
         <section class="config-card config-wide" data-config-modes="optimize">
-          <div class="config-card-head"><span>02</span><div><h2>Set feasibility limits</h2><p>The textbook objectives are configurable gates. Its four requested selections are still reported from every calculated variant.</p></div></div>
+          <div class="config-card-head"><span>02</span><div><h2>Set feasibility limits</h2><p>A feasible design passes every selected limit. The four textbook winners are selected from that feasible set; diagnostic results remain available if no variant passes.</p></div></div>
           <div class="constraint-fields">
             <label class="field"><span>Minimum efficiency <small>% · full load, 0.85 PF</small></span><input id="optMinEff" type="number" min="1" max="99.999" step="0.1" value="98"></label>
             <label class="field"><span>Maximum active mass <small>kg/kVA</small></span><input id="optMaxMass" type="number" min="0.1" step="0.1" value="4"></label>
@@ -184,6 +191,7 @@
 
         <section class="config-card" data-config-modes="nominal explore">
           <div class="config-card-head"><span>04</span><div><h2>Design assumptions</h2><p>Magnetic and winding targets.</p></div></div>
+          <label class="field"><span>Volts-per-turn factor <small>K</small></span><input id="emfK" type="number" min="0.01" step="0.01" value="0.6"></label>
           <div class="field-grid">
             <label class="field"><span>Flux density <small>T</small></span><input id="bm" type="number" min="0.5" step="0.05" value="1.6"></label>
             <label class="field"><span>Current density <small>A/mm²</small></span><input id="cdav" type="number" min="0.5" step="0.1" value="2.6"></label>

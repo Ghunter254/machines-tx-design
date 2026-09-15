@@ -81,15 +81,20 @@ static int validateInputs(const DesignInputs *in)
         in->hvRadialStrands < 1)
         return -3;
     if (in->lvParallelStrands % in->lvAxialStrands != 0) return -4;
-    if (in->optimizerBmMin <= 0.0 || in->optimizerBmMin >= in->optimizerBmMax ||
-        in->optimizerCurrentDensityMin <= 0.0 || in->optimizerCurrentDensityMin >= in->optimizerCurrentDensityMax ||
-        in->optimizerAspectRatioMin <= 0.0 || in->optimizerAspectRatioMin >= in->optimizerAspectRatioMax ||
+    if (in->optimizerKMin <= 0.0 || in->optimizerKMin > in->optimizerKMax ||
+        in->optimizerBmMin <= 0.0 || in->optimizerBmMin > in->optimizerBmMax ||
+        in->optimizerCurrentDensityMin <= 0.0 || in->optimizerCurrentDensityMin > in->optimizerCurrentDensityMax ||
+        in->optimizerAspectRatioMin <= 0.0 || in->optimizerAspectRatioMin > in->optimizerAspectRatioMax ||
         in->optimizerActualCurrentDensityMin <= 0.0 || in->optimizerActualCurrentDensityMin >= in->optimizerActualCurrentDensityMax ||
         in->optimizerMinAxialSlackMm < 0.0 || in->optimizerMinAdjacentClearanceMm < 0.0 ||
         in->optimizerTemperatureMarginC < 0.0 || in->optimizerMinEfficiencyPercent <= 0.0 ||
         in->optimizerMinEfficiencyPercent >= 100.0 || in->optimizerMaxSpecificMassKgKva <= 0.0 ||
         in->optimizerMaxNoLoadCurrentPercent <= 0.0 || in->optimizerMaxTankVolumeM3 <= 0.0)
         return -5;
+    if (in->optimizerKSteps < 1 || in->optimizerBmSteps < 1 ||
+        in->optimizerCurrentDensitySteps < 1 || in->optimizerAspectRatioSteps < 1 ||
+        (double)in->optimizerKSteps * in->optimizerBmSteps * in->optimizerCurrentDensitySteps * in->optimizerAspectRatioSteps > MAX_SEARCH_DESIGNS)
+        return -6;
     return 0;
 }
 

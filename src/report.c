@@ -169,8 +169,8 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
         fprintf(out, "Oil volume / oil mass                             %.3f m3 / %.2f kg\n", tx->tankDerived.Voil, tx->tankDerived.Woil);
         fprintf(out, "Specific active mass                                  %.3f kg/kVA\n\n", t->KgPkva);
         fprintf(out, "BILL OF MATERIALS\n-----------------\n");
-        fprintf(out, "HV copper                                             %10.2f kg\n", t->Wcu1);
-        fprintf(out, "LV copper                                             %10.2f kg\n", t->Wcu2);
+        fprintf(out, "HV copper (all phases)                                %10.2f kg\n", t->Wcu1);
+        fprintf(out, "LV copper (all phases)                                %10.2f kg\n", t->Wcu2);
         fprintf(out, "Active core steel                                     %10.2f kg\n", t->Wiron);
         fprintf(out, "Fabricated tank steel                                 %10.2f kg\n", tx->tankDerived.Wsteel);
         fprintf(out, "Insulating oil                                        %10.2f kg\n", tx->tankDerived.Woil);
@@ -216,13 +216,20 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
             tx->input.optimizerActualCurrentDensityMin, tx->input.optimizerActualCurrentDensityMax,
             tx->input.optimizerMinAxialSlackMm, tx->input.optimizerMinAdjacentClearanceMm,
             tx->input.optimizerTemperatureMarginC);
-        fprintf(out, " Sn   Bm(T)  J(A/mm2) H/W     eff(%%)    kg/kVA    I0/I2(%%)   tank(m3) Status\n");
+        fprintf(out, "Search: K %.4f..%.4f (%d), Bm %.3f..%.3f (%d), J %.3f..%.3f (%d), L/(D-d) target %.3f..%.3f (%d).\n",
+            tx->input.optimizerKMin, tx->input.optimizerKMax, tx->input.optimizerKSteps,
+            tx->input.optimizerBmMin, tx->input.optimizerBmMax, tx->input.optimizerBmSteps,
+            tx->input.optimizerCurrentDensityMin, tx->input.optimizerCurrentDensityMax, tx->input.optimizerCurrentDensitySteps,
+            tx->input.optimizerAspectRatioMin, tx->input.optimizerAspectRatioMax, tx->input.optimizerAspectRatioSteps);
+        fprintf(out, " Sn    K    Bm      d      L      D      W  L/(D-d)  cdav   cdLV   cdHV    eff(%%)   kg/kVA  I0/I2(%%) tank(m3) Reg(%%) Nt Status\n");
         for (int i = 0; i < optimization->sampleCount; i++) {
             const OptimizationCandidate *c = &optimization->samples[i];
-            fprintf(out, "%3d   %.3f  %.3f    %.3f  ", c->serialNumber, c->Bm, c->currentDensityTarget, c->windowAspectRatio);
+            fprintf(out, "%4d %.3f %.3f %.4f %.4f %.4f %.4f %.4f %.3f %.3f %.3f ",
+                c->serialNumber, c->K, c->Bm, c->d, c->L, c->D, c->W, c->actualWindowRatio,
+                c->currentDensityTarget, c->lvCurrentDensity, c->hvCurrentDensity);
             if (c->calculated) fprintf(out, "%8.4f  %8.4f  %8.4f   %8.4f ", c->comparisonEfficiencyPercent, c->specificMassKgKva, c->noLoadCurrentPercent, c->tankVolumeM3);
             else fprintf(out, "       -         -         -          - ");
-            fprintf(out, "%s\n", c->feasible ? "FEASIBLE" : c->constraintFailures);
+            fprintf(out, "%.3f %d %s\n", c->regulationPercent, c->coolingTubes, c->feasible ? "FEASIBLE" : c->constraintFailures);
         }
         static const char *criteria[] = {"Maximum efficiency (full load, 0.85 PF)", "Minimum active kg/kVA", "Minimum I0/I2 (%)", "Minimum tank volume (m3)"};
         fprintf(out, "\nTextbook selections prefer feasible variants; when none pass the configured gate, the best calculated attempt is shown as a diagnostic fallback. Exact ties choose the earliest serial.\n");
@@ -231,7 +238,7 @@ static void writeTextStream(const Transformer *tx, const OptimizationSet *optimi
                 ? &optimization->criteriaWinners[i] : &optimization->calculatedCriteriaWinners[i];
             if (!c->serialNumber) { fprintf(out, "%s: no feasible variant.\n", criteria[i]); continue; }
             double value = i == 0 ? c->comparisonEfficiencyPercent : i == 1 ? c->specificMassKgKva : i == 2 ? c->noLoadCurrentPercent : c->tankVolumeM3;
-            fprintf(out, "%s: select variant Sn %d (%.6f) [%s%s%s].\n", criteria[i], c->serialNumber, value,
+            fprintf(out, "If %s is required, %s variant (Sn) = %d (%.6f) [%s%s%s].\n", criteria[i], c->feasible ? "select" : "inspect diagnostic", c->serialNumber, value,
                 c->feasible ? "FEASIBLE" : "CALCULATED BUT NOT FEASIBLE", c->feasible ? "" : ": ", c->feasible ? "" : c->constraintFailures);
         }
         if (optimization->recommendedIndex >= 0) {
@@ -301,11 +308,13 @@ static void jsonOptimizationCandidate(FILE *out, const OptimizationCandidate *c)
 {
     fprintf(out, "{\"serialNumber\":%d,\"calculated\":%s,\"feasible\":%s,\"constraintFailures\":", c->serialNumber, c->calculated ? "true" : "false", c->feasible ? "true" : "false");
     jsonString(out, c->constraintFailures);
-    fprintf(out, ",\"bm\":%.10g,\"currentDensityTarget\":%.10g,\"windowAspectRatio\":%.10g", c->Bm, c->currentDensityTarget, c->windowAspectRatio);
+    fprintf(out, ",\"k\":%.17g,\"bm\":%.17g,\"currentDensityTarget\":%.17g,\"windowAspectRatio\":%.17g", c->K, c->Bm, c->currentDensityTarget, c->windowAspectRatio);
     if (!c->calculated) {
         fputs(",\"comparisonEfficiencyPercent\":null,\"specificMassKgKva\":null,\"noLoadCurrentPercent\":null,\"tankVolumeM3\":null}", out);
         return;
     }
+    fprintf(out, ",\"coreDiameterM\":%.10g,\"windowHeightM\":%.10g,\"centreDistanceM\":%.10g,\"yokeLengthM\":%.10g,\"actualWindowRatio\":%.10g,\"lvCurrentDensity\":%.10g,\"hvCurrentDensity\":%.10g,\"regulationPercent\":%.10g,\"coolingTubes\":%d",
+        c->d, c->L, c->D, c->W, c->actualWindowRatio, c->lvCurrentDensity, c->hvCurrentDensity, c->regulationPercent, c->coolingTubes);
     fprintf(out, ",\"totalLossW\":%.10g,\"activeMassKg\":%.10g,\"materialCostIndex\":%.10g,\"efficiencyPercent\":%.10g,\"impedancePercent\":%.10g,\"temperatureRiseC\":%.10g,\"benchmarkPassCount\":%d,\"balanceScore\":%.10g,\"comparisonEfficiencyPercent\":%.10g,\"specificMassKgKva\":%.10g,\"noLoadCurrentPercent\":%.10g,\"tankVolumeM3\":%.10g}",
         c->totalLossW, c->activeMassKg, c->materialCostIndex, c->efficiencyPercent,
         c->impedancePercent, c->temperatureRiseC, c->benchmarkPassCount, c->balanceScore,
@@ -320,6 +329,12 @@ int writeJsonStream(const Transformer *tx, const OptimizationSet *optimization, 
     fprintf(out, ",\"requestedSections\":"); jsonSectionNames(out, tx->requestedSections);
     fprintf(out, ",\"completedSections\":"); jsonSectionNames(out, tx->completedSections);
     fprintf(out, ",\"benchmark\":\"Kenya Power 2025, 11/0.420 kV\"},\n");
+    fputs("\"configuration\":{", out);
+    writeNumericConfiguration(tx, out);
+    fputs("\"HV_CONNECTION\":", out); jsonString(out, connectionName(tx->input.hvConnection));
+    fputs(",\"LV_CONNECTION\":", out); jsonString(out, connectionName(tx->input.lvConnection));
+    fputs(",\"COOLING_METHOD\":", out); jsonString(out, tx->input.cooling);
+    fputs("},\n", out);
     fprintf(out, "  \"input\":{\"kva\":%.8g,\"hvVoltage\":%.8g,\"lvVoltage\":%.8g,\"phases\":%d,\"frequency\":%.8g,",
         tx->input.KVA, tx->input.HV, tx->input.LV, tx->input.Ph, tx->input.f);
     fprintf(out, "\"hvConnection\":"); jsonString(out, connectionName(tx->input.hvConnection));

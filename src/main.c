@@ -122,7 +122,12 @@ int main(int argc, char **argv)
     OptimizationSet optimization;
     OptimizationSet *optimizationPtr = NULL;
     if (mode == RUN_OPTIMIZE) {
-        if (runOptimization(&tx, &optimization) != 0) {
+        int optimizationStatus = runOptimization(&tx, &optimization);
+        if (optimizationStatus == -2) {
+            fprintf(stderr, "Optimization could not start: invalid search size or insufficient memory.\n");
+            return EXIT_FAILURE;
+        }
+        if (optimizationStatus != 0) {
             fprintf(stderr, "Optimization found no design satisfying the hard constraints.\n");
         }
         optimizationPtr = &optimization;

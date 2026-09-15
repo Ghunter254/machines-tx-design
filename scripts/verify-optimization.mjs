@@ -18,29 +18,32 @@ const config = Object.fromEntries(fs.readFileSync(path.join(root, 'data/config.t
   .filter(line => /^[A-Z_0-9]+\s*=/.test(line)).map(line => line.split('=').map(s => s.trim())));
 const bound = (key, fallback) => Number(config[key] ?? fallback);
 const ranges = [
-  ['CORE_FLUX_DENSITY', bound('OPTIMIZER_BM_MIN', 1.4), bound('OPTIMIZER_BM_MAX', 1.7), 7],
-  ['AVERAGE_CURRENT_DENSITY', bound('OPTIMIZER_CURRENT_DENSITY_MIN', 2.3), bound('OPTIMIZER_CURRENT_DENSITY_MAX', 3.2), 7],
-  ['WINDOW_ASPECT_RATIO', bound('OPTIMIZER_ASPECT_RATIO_MIN', 2.5), bound('OPTIMIZER_ASPECT_RATIO_MAX', 4), 6]
+  ['EMF_VALUE_FACTOR', bound('OPTIMIZER_K_MIN', 0.6), bound('OPTIMIZER_K_MAX', 0.65), bound('OPTIMIZER_K_STEPS', 6)],
+  ['CORE_FLUX_DENSITY', bound('OPTIMIZER_BM_MIN', 1.4), bound('OPTIMIZER_BM_MAX', 1.7), bound('OPTIMIZER_BM_STEPS', 7)],
+  ['AVERAGE_CURRENT_DENSITY', bound('OPTIMIZER_CURRENT_DENSITY_MIN', 2.3), bound('OPTIMIZER_CURRENT_DENSITY_MAX', 3.2), bound('OPTIMIZER_CURRENT_DENSITY_STEPS', 7)],
+  ['WINDOW_ASPECT_RATIO', bound('OPTIMIZER_ASPECT_RATIO_MIN', 2.5), bound('OPTIMIZER_ASPECT_RATIO_MAX', 4), bound('OPTIMIZER_ASPECT_RATIO_STEPS', 6)]
 ];
 const output = run(['--mode', 'optimize']);
 const o = output.optimization;
-assert.equal(o.evaluatedDesigns, 294);
+const total = ranges.reduce((n, r) => n * r[3], 1);
+assert.equal(o.evaluatedDesigns, total);
 assert.equal(o.samples.length, 15);
-assert.deepEqual(o.samples.map(c => c.serialNumber), Array.from({ length: 15 }, (_, i) => 1 + Math.round(i * 293 / 14)));
+assert.deepEqual(o.samples.map(c => c.serialNumber), Array.from({ length: 15 }, (_, i) => 1 + Math.round(i * (total - 1) / 14)));
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) <= 2e-6 * Math.max(1, Math.abs(expected)), `${actual} != ${expected}`);
 const all = [];
-for (let b = 0; b < 7; b++) for (let j = 0; j < 7; j++) for (let a = 0; a < 6; a++) {
+for (let k = 0; k < ranges[0][3]; k++) for (let b = 0; b < ranges[1][3]; b++) for (let j = 0; j < ranges[2][3]; j++) for (let a = 0; a < ranges[3][3]; a++) {
   const args = ['--mode', 'explore', '--set', 'AUTOMATIC_CONDUCTOR_SIZING=1'];
-  [b, j, a].forEach((index, dimension) => {
+  [k, b, j, a].forEach((index, dimension) => {
     const [key, min, max, count] = ranges[dimension];
-    args.push('--set', `${key}=${min + (max - min) * index / (count - 1)}`);
+    args.push('--set', `${key}=${count === 1 ? min : min + (max - min) * index / (count - 1)}`);
   });
   const tx = run(args), { frame: f, lv, hv, tank: t, noLoad: n, performance: p } = tx.sections;
   const serialNumber = all.length + 1;
-  const feasible = lv.currentDensity >= 2.15 && lv.currentDensity <= 3.6 && hv.currentDensity >= 2.15 && hv.currentDensity <= 3.6 &&
-    lv.axialSlackMm >= 0 && hv.axialSlackMm >= 0 && hv.endCoilTurns > 0 && f.centreDistanceM * 1000 - hv.outerDiameterMm >= 0 &&
-    t.cooledRiseC <= t.targetRiseC + 0.5 && t.oilVolumeM3 > 0 && p.cases[1].efficiencyPercent >= 98 &&
-    t.specificMassKgKva <= 4 && n.noLoadCurrentPercent <= 1 && t.volumeM3 <= 1.5;
+  const limits = o.constraints;
+  const feasible = lv.currentDensity >= limits.actualCurrentDensityMin && lv.currentDensity <= limits.actualCurrentDensityMax && hv.currentDensity >= limits.actualCurrentDensityMin && hv.currentDensity <= limits.actualCurrentDensityMax &&
+    lv.axialSlackMm >= limits.minimumAxialSlackMm && hv.axialSlackMm >= limits.minimumAxialSlackMm && hv.endCoilTurns > 0 && f.centreDistanceM * 1000 - hv.outerDiameterMm >= limits.minimumAdjacentClearanceMm &&
+    t.cooledRiseC <= t.targetRiseC + limits.temperatureMarginC && t.oilVolumeM3 > 0 && p.cases[1].efficiencyPercent >= limits.minimumEfficiencyPercent &&
+    t.specificMassKgKva <= limits.maximumSpecificMassKgKva && n.noLoadCurrentPercent <= limits.maximumNoLoadCurrentPercent && t.volumeM3 <= limits.maximumTankVolumeM3;
   const c = { serialNumber, feasible, comparisonEfficiencyPercent: p.cases[1].efficiencyPercent,
     specificMassKgKva: t.specificMassKgKva, noLoadCurrentPercent: n.noLoadCurrentPercent, tankVolumeM3: t.volumeM3,
     totalLossW: tx.summary.totalLossW, activeMassKg: t.activeMassKg, materialCostIndex: t.materialCostIndex };
@@ -56,6 +59,8 @@ assert.equal(o.feasibleDesigns, feasible.length);
 for (const [key, field, sign] of [['efficiency', 'comparisonEfficiencyPercent', -1], ['specificMass', 'specificMassKgKva', 1], ['noLoadCurrent', 'noLoadCurrentPercent', 1], ['tankVolume', 'tankVolumeM3', 1]]) {
   const best = [...feasible].sort((a, b) => sign * (a[field] - b[field]) || a.serialNumber - b.serialNumber)[0];
   assert.equal(o.criteriaWinners[key]?.serialNumber, best?.serialNumber);
+  const diagnostic = [...all].sort((a, b) => sign * (a[field] - b[field]) || a.serialNumber - b.serialNumber)[0];
+  assert.equal(o.calculatedCriteriaWinners[key]?.serialNumber, diagnostic?.serialNumber);
 }
 const objectives = ['totalLossW', 'activeMassKg', 'materialCostIndex'];
 const frontier = feasible.filter(c => !feasible.some(d => objectives.every(k => d[k] <= c[k]) && objectives.some(k => d[k] < c[k])));
@@ -76,7 +81,7 @@ const context = { window: {} };
 vm.runInNewContext(fs.readFileSync(path.join(root, 'dist/optimization.js'), 'utf8'), context);
 const ui = context.window.TX_OPTIMIZATION;
 assert.equal(ui.section(o).slides.length, 8);
-assert.equal((ui.render(o).match(/<tr/g) || []).length, 16);
+assert.equal((ui.render(o).match(/<tr/g) || []).length, 32);
 assert.match(ui.render(empty), /CALCULATED/);
 assert.match(ui.render(empty), /No balanced recommendation/);
 assert.match(ui.render({}), /Run Optimal again/);
@@ -84,4 +89,17 @@ for (const result of [o, empty]) for (const slide of ui.section(result).slides) 
   assert.ok(ui.slide(slide, result).includes('<h2>'));
   assert.doesNotMatch(ui.slide(slide, result), /undefined|NaN/);
 }
-console.log(`Verified all 294 attempts, 15 samples, four global winners, ${frontier.length} Pareto variants, and the empty-feasible search.`);
+for (const candidate of [...Object.values(o.criteriaWinners), o.candidates[0]].filter(Boolean)) {
+  const values = ui.replayOverrides(output, candidate.serialNumber);
+  const replay = run(['--mode', 'explore', ...Object.entries(values).flatMap(([key, value]) => ['--set', `${key}=${value}`])]);
+  close(replay.sections.performance.cases[1].efficiencyPercent, candidate.comparisonEfficiencyPercent);
+  close(replay.sections.tank.specificMassKgKva, candidate.specificMassKgKva);
+  close(replay.sections.noLoad.noLoadCurrentPercent, candidate.noLoadCurrentPercent);
+  close(replay.sections.tank.volumeM3, candidate.tankVolumeM3);
+  assert.equal(replay.assumptions.emfValueFactor, candidate.k);
+}
+const small = run(['--mode', 'optimize', '--set', 'OPTIMIZER_K_STEPS=1', '--set', 'OPTIMIZER_BM_STEPS=1', '--set', 'OPTIMIZER_CURRENT_DENSITY_STEPS=1', '--set', 'OPTIMIZER_ASPECT_RATIO_STEPS=1']).optimization;
+assert.equal(small.evaluatedDesigns, 1);
+assert.equal(small.samples.length, 1);
+assert.equal(small.samples[0].serialNumber, 1);
+console.log(`Verified all ${total} attempts, 15 samples, four global winners, ${frontier.length} Pareto variants, exact winner replay, single-point and empty-feasible searches.`);

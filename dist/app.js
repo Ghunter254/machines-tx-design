@@ -13,6 +13,22 @@ let engineReady = false;
 let exploreScope = ['frame'];
 let presentationActive = false;
 let tutorialIndex = 0;
+let simulationRunning = false;
+const extraSearchFields = {
+  optKMin: 'OPTIMIZER_K_MIN', optKMax: 'OPTIMIZER_K_MAX', optKSteps: 'OPTIMIZER_K_STEPS',
+  optBmSteps: 'OPTIMIZER_BM_STEPS', optCdSteps: 'OPTIMIZER_CURRENT_DENSITY_STEPS', optAspectSteps: 'OPTIMIZER_ASPECT_RATIO_STEPS',
+  optBmMin: 'OPTIMIZER_BM_MIN', optBmMax: 'OPTIMIZER_BM_MAX',
+  optCdMin: 'OPTIMIZER_CURRENT_DENSITY_MIN', optCdMax: 'OPTIMIZER_CURRENT_DENSITY_MAX',
+  optAspectMin: 'OPTIMIZER_ASPECT_RATIO_MIN', optAspectMax: 'OPTIMIZER_ASPECT_RATIO_MAX',
+  optActualCdMin: 'OPTIMIZER_ACTUAL_CURRENT_DENSITY_MIN', optActualCdMax: 'OPTIMIZER_ACTUAL_CURRENT_DENSITY_MAX',
+  optMinSlack: 'OPTIMIZER_MIN_AXIAL_SLACK_MM', optMinClearance: 'OPTIMIZER_MIN_ADJACENT_CLEARANCE_MM',
+  optTempMargin: 'OPTIMIZER_TEMPERATURE_MARGIN_C', optMinEff: 'OPTIMIZER_MIN_EFFICIENCY_PERCENT',
+  optMaxMass: 'OPTIMIZER_MAX_SPECIFIC_MASS_KG_KVA', optMaxI0: 'OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT', optMaxTank: 'OPTIMIZER_MAX_TANK_VOLUME_M3'
+};
+function updateSearchCount() {
+  const count = ['optKSteps', 'optBmSteps', 'optCdSteps', 'optAspectSteps'].reduce((n, id) => n * $(id).valueAsNumber, 1);
+  $('searchCount').textContent = `${Number.isFinite(count) ? count.toLocaleString() : '—'} combinations. Choose a winner for efficiency, mass, no-load current or tank volume.`;
+}
 
 const tutorialStorageKey = 'txc-tutorial-complete-v1';
 
@@ -21,6 +37,8 @@ const defaults = {
   VECTOR_CLOCK: 11, HV_CONNECTION: 'delta', LV_CONNECTION: 'star',
   CORE_FLUX_DENSITY: 1.6, AVERAGE_CURRENT_DENSITY: 2.6,
   WINDOW_ASPECT_RATIO: 3, AUTOMATIC_CONDUCTOR_SIZING: 0,
+  EMF_VALUE_FACTOR: 0.6, OPTIMIZER_K_MIN: 0.6, OPTIMIZER_K_MAX: 0.65,
+  OPTIMIZER_K_STEPS: 6, OPTIMIZER_BM_STEPS: 7, OPTIMIZER_CURRENT_DENSITY_STEPS: 7, OPTIMIZER_ASPECT_RATIO_STEPS: 6,
   OPTIMIZER_BM_MIN: 1.4, OPTIMIZER_BM_MAX: 1.7,
   OPTIMIZER_CURRENT_DENSITY_MIN: 2.3, OPTIMIZER_CURRENT_DENSITY_MAX: 3.2,
   OPTIMIZER_ASPECT_RATIO_MIN: 2.5, OPTIMIZER_ASPECT_RATIO_MAX: 4.0,
@@ -44,7 +62,7 @@ const modeCopy = {
   },
   optimize: {
     kicker: 'DESIGN SEARCH', title: 'Define the optimization space',
-    description: 'Set the transformer duty and practical search limits. The C engine will compare feasible designs and recommend a balanced candidate.',
+    description: 'Set the transformer duty and search limits, then choose a feasible design for your preferred textbook objective.',
     run: 'Find optimal design'
   }
 };
@@ -136,6 +154,8 @@ function setInput(id, value) {
 }
 
 function resetInputs() {
+  Object.entries(extraSearchFields).forEach(([id, key]) => setInput(id, defaults[key]));
+  setInput('emfK', defaults.EMF_VALUE_FACTOR);
   setInput('kva', defaults.APPARENT_POWER);
   setInput('hv', defaults.HV_VOLTAGE);
   setInput('lv', defaults.LV_VOLTAGE);
@@ -162,6 +182,7 @@ function resetInputs() {
   setInput('optMaxI0', defaults.OPTIMIZER_MAX_NO_LOAD_CURRENT_PERCENT);
   setInput('optMaxTank', defaults.OPTIMIZER_MAX_TANK_VOLUME_M3);
   $('autoSizing').checked = false;
+  updateSearchCount();
 }
 
 function syncInputsFromResult(data) {
@@ -177,6 +198,12 @@ function syncInputsFromResult(data) {
   setInput('bm', input.coreFluxDensityT);
   setInput('cdav', input.averageCurrentDensity);
   setInput('aspect', input.windowAspectRatio);
+  setInput('emfK', data.assumptions?.emfValueFactor);
+  if (data.configuration) {
+    Object.entries(extraSearchFields).forEach(([id, key]) => setInput(id, data.configuration[key]));
+    $('autoSizing').checked = Boolean(data.configuration.AUTOMATIC_CONDUCTOR_SIZING);
+  }
+  updateSearchCount();
 }
 
 function selectedSections() {
@@ -206,6 +233,9 @@ function updateScopeSummary() {
 
 function overrides() {
   return {
+    ...lastResult?.configuration,
+    ...Object.fromEntries(Object.entries(extraSearchFields).map(([id, key]) => [key, $(id).value])),
+    EMF_VALUE_FACTOR: $('emfK').value,
     APPARENT_POWER: $('kva').value, HV_VOLTAGE: $('hv').value, LV_VOLTAGE: $('lv').value,
     FREQUENCY: $('freq').value, VECTOR_CLOCK: $('clock').value,
     HV_CONNECTION: $('hvConnection').value, LV_CONNECTION: $('lvConnection').value,
@@ -360,6 +390,7 @@ function renderHeroMetrics(data) {
   const set = metricSets[$('metricView').value] || metricSets.overview;
   const metrics = (set?.metrics || []).slice(0, 4);
   $('heroMetrics').innerHTML = metrics.map(([path, label, unit, transform]) => {
+    if (path === 'summary.fullLoadEfficiencyPercent') label = 'Full-load efficiency · PF 1';
     const raw = get(data, path);
     const transformed = raw === undefined ? undefined : transform(raw);
     const state = metricState(path);
@@ -410,7 +441,7 @@ function renderOptimization(data) {
         <div><dt>Active mass</dt><dd>${number(recommended.activeMassKg, 1)} kg <small>${signed(massChange)} vs reference</small></dd></div>
         <div><dt>Efficiency</dt><dd>${number(recommended.efficiencyPercent, 3)}% <small>${number(recommended.impedancePercent, 3)}% impedance</small></dd></div>
       </dl>
-      <button id="applyRecommended" class="apply-recommendation" type="button">Explore this candidate <span>→</span></button>`;
+      <button id="applyRecommended" class="apply-recommendation" type="button">Run balanced design <span>→</span></button>`;
   } else {
     $('optimizationLead').innerHTML = '<p class="empty-copy">No feasible recommendation was returned for this search space.</p>';
   }
@@ -427,15 +458,19 @@ function applyRecommendedCandidate() {
   const candidates = optimization?.candidates || [];
   const recommended = candidates[optimization?.recommendedIndex ?? 0] || candidates[0];
   if (!recommended) return;
-  setInput('bm', recommended.bm);
-  setInput('cdav', recommended.currentDensityTarget);
-  setInput('aspect', recommended.windowAspectRatio);
-  $('autoSizing').checked = true;
-  $('scenario').value = 'manual';
-  showScenario(null);
-  exploreScope = sections.map(section => section.id);
-  setMode('explore');
-  location.hash = '#/configure';
+  runSelectedVariant(recommended.serialNumber);
+}
+
+async function runSelectedVariant(serial) {
+  if (simulationRunning) return;
+  try {
+    const variantOverrides = window.TX_OPTIMIZATION.replayOverrides(lastResult, serial);
+    if (presentationActive) closePresentation();
+    exploreScope = sections.map(section => section.id);
+    setMode('explore');
+    setScope(['all']);
+    await runSimulation({ variantOverrides, serial });
+  } catch (error) { showError(error.message); }
 }
 
 function renderResult(data, syncInputs = false) {
@@ -695,6 +730,8 @@ function showError(message) {
 }
 
 function setRunning(running) {
+  simulationRunning = running;
+  document.querySelectorAll('[data-run-variant], #applyRecommended, [data-mode]').forEach(button => { button.disabled = running; });
   [$('runButton'), $('configRunButton')].forEach(button => { button.disabled = running; });
   $('runLabel').textContent = running ? 'Calculating…' : 'Run design';
   $('configRunLabel').textContent = running ? 'Calculating…' : modeCopy[currentMode].run;
@@ -708,12 +745,16 @@ function validateRunRequest() {
   }
   if (currentMode === 'optimize') {
     const ranges = [
+      ['K', $('optKMin').valueAsNumber, $('optKMax').valueAsNumber],
       ['Flux density', $('optBmMin').valueAsNumber, $('optBmMax').valueAsNumber],
       ['Current density', $('optCdMin').valueAsNumber, $('optCdMax').valueAsNumber],
       ['Window ratio', $('optAspectMin').valueAsNumber, $('optAspectMax').valueAsNumber]
     ];
-    const invalid = ranges.find(([, minimum, maximum]) => !Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum >= maximum);
-    if (invalid) throw new Error(`${invalid[0]} minimum must be lower than its maximum.`);
+    const invalid = ranges.find(([, minimum, maximum]) => !Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum <= 0 || minimum > maximum);
+    if (invalid) throw new Error(`${invalid[0]} needs a positive minimum no greater than its maximum.`);
+    const counts = ['optKSteps', 'optBmSteps', 'optCdSteps', 'optAspectSteps'].map(id => $(id).valueAsNumber);
+    if (counts.some(n => !Number.isInteger(n) || n < 1) || counts.reduce((a, b) => a * b, 1) > 5000)
+      throw new Error('Use positive whole-number sample counts with at most 5,000 combinations.');
     const actualMinimum = $('optActualCdMin').valueAsNumber;
     const actualMaximum = $('optActualCdMax').valueAsNumber;
     if (!Number.isFinite(actualMinimum) || !Number.isFinite(actualMaximum) || actualMinimum >= actualMaximum)
@@ -757,7 +798,8 @@ async function loadLatestResult() {
   }
 }
 
-async function runSimulation() {
+async function runSimulation(request) {
+  if (simulationRunning) return;
   try {
     validateRunRequest();
   } catch (error) {
@@ -770,14 +812,14 @@ async function runSimulation() {
   try {
     const response = await api('/api/simulate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: currentMode, sections: selectedSections(), overrides: overrides() })
+      body: JSON.stringify({ mode: currentMode, sections: request?.variantOverrides ? ['all'] : selectedSections(), overrides: request?.variantOverrides || overrides() })
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'The simulation request failed.');
-    renderResult(result);
+    renderResult(result, Boolean(request?.variantOverrides));
     const runTag = String(result.meta?.runId || '').split('-').at(-1).slice(0, 6);
     const runTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    $('lastRun').textContent = `Recalculated ${runTime}${runTag ? ` · run ${runTag}` : ''}`;
+    $('lastRun').textContent = `Recalculated ${runTime}${request?.serial ? ` · selected variant ${request.serial}` : ''}${runTag ? ` · run ${runTag}` : ''}`;
     location.hash = '#/';
   } catch (error) {
     showError(`${error.message} Confirm that the backend and compiled C engine are available.`);
@@ -788,6 +830,12 @@ async function runSimulation() {
 }
 
 function bindEvents() {
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-run-variant]');
+    if (button) runSelectedVariant(Number(button.dataset.runVariant));
+  });
+  Object.keys(extraSearchFields).forEach(id => $(id).addEventListener('input', updateSearchCount));
+  updateSearchCount();
   document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
   $('scenario').addEventListener('change', applyScenario);
   document.querySelectorAll('#exploreScope input').forEach(input => input.addEventListener('change', () => {

@@ -5,8 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_SEARCH_DESIGNS 512
-#define SEARCH_DESIGNS (7 * 7 * 6)
+static double gridValue(double min, double max, int index, int count)
+{
+    return count == 1 ? min : min + (max - min) * index / (count - 1);
+}
 
 static int isSafeFeasible(const Transformer *tx)
 {
@@ -59,6 +61,7 @@ static void summarize(const Transformer *tx, int serial, int calculated, Optimiz
 {
     memset(c, 0, sizeof(*c));
     c->serialNumber = serial;
+    c->K = tx->input.K;
     c->Bm = tx->input.Bm;
     c->currentDensityTarget = tx->input.cdav;
     c->windowAspectRatio = tx->input.windowAspectRatio;
@@ -83,6 +86,12 @@ static void summarize(const Transformer *tx, int serial, int calculated, Optimiz
     c->specificMassKgKva = tx->tank.KgPkva;
     c->noLoadCurrentPercent = tx->noLoadCurrent.I0byI2;
     c->tankVolumeM3 = tx->tank.Vt;
+    c->d = tx->magneticFrame.d; c->L = tx->magneticFrame.L;
+    c->D = tx->magneticFrame.D; c->W = tx->magneticFrame.W;
+    c->actualWindowRatio = tx->magneticFrame.windowRatio;
+    c->lvCurrentDensity = tx->lv.cd; c->hvCurrentDensity = tx->hv.cd;
+    c->regulationPercent = tx->performance.Reg85 * 100.0;
+    c->coolingTubes = (int)tx->tank.Nt;
 #define FAILURE(condition, label) if (!(condition)) strcat(c->constraintFailures, label "; ")
     FAILURE(tx->lv.cd >= tx->input.optimizerActualCurrentDensityMin && tx->lv.cd <= tx->input.optimizerActualCurrentDensityMax, "LV current density");
     FAILURE(tx->hv.cd >= tx->input.optimizerActualCurrentDensityMin && tx->hv.cd <= tx->input.optimizerActualCurrentDensityMax, "HV current density");
@@ -109,24 +118,31 @@ static double criterionValue(const OptimizationCandidate *c, int criterion)
 
 int runOptimization(const Transformer *baseline, OptimizationSet *set)
 {
-    OptimizationCandidate pool[MAX_SEARCH_DESIGNS];
-    OptimizationCandidate frontier[MAX_SEARCH_DESIGNS];
-    int pareto[MAX_SEARCH_DESIGNS];
     int poolCount = 0;
     memset(set, 0, sizeof(*set));
     set->recommendedIndex = -1;
 
     const DesignInputs *bounds = &baseline->input;
-    for (int bi = 0; bi <= 6; bi++) {
-        for (int ji = 0; ji <= 6; ji++) {
-            for (int ai = 0; ai <= 5; ai++) {
+    const double requested = (double)bounds->optimizerKSteps * bounds->optimizerBmSteps *
+        bounds->optimizerCurrentDensitySteps * bounds->optimizerAspectRatioSteps;
+    if (bounds->optimizerKSteps < 1 || bounds->optimizerBmSteps < 1 ||
+        bounds->optimizerCurrentDensitySteps < 1 || bounds->optimizerAspectRatioSteps < 1 ||
+        requested > MAX_SEARCH_DESIGNS) return -2;
+    const int total = (int)requested;
+    const int sampleTarget = total < OPTIMIZATION_SAMPLE_COUNT ? total : OPTIMIZATION_SAMPLE_COUNT;
+    OptimizationCandidate *pool = calloc((size_t)total, sizeof(*pool));
+    OptimizationCandidate *frontier = calloc((size_t)total, sizeof(*frontier));
+    int *pareto = calloc((size_t)total, sizeof(*pareto));
+    if (!pool || !frontier || !pareto) { free(pool); free(frontier); free(pareto); return -2; }
+    for (int ki = 0; ki < bounds->optimizerKSteps; ki++) {
+      for (int bi = 0; bi < bounds->optimizerBmSteps; bi++) {
+        for (int ji = 0; ji < bounds->optimizerCurrentDensitySteps; ji++) {
+            for (int ai = 0; ai < bounds->optimizerAspectRatioSteps; ai++) {
                 Transformer candidate = *baseline;
-                candidate.input.Bm = bounds->optimizerBmMin +
-                    (bounds->optimizerBmMax - bounds->optimizerBmMin) * bi / 6.0;
-                candidate.input.cdav = bounds->optimizerCurrentDensityMin +
-                    (bounds->optimizerCurrentDensityMax - bounds->optimizerCurrentDensityMin) * ji / 6.0;
-                candidate.input.windowAspectRatio = bounds->optimizerAspectRatioMin +
-                    (bounds->optimizerAspectRatioMax - bounds->optimizerAspectRatioMin) * ai / 5.0;
+                candidate.input.K = gridValue(bounds->optimizerKMin, bounds->optimizerKMax, ki, bounds->optimizerKSteps);
+                candidate.input.Bm = gridValue(bounds->optimizerBmMin, bounds->optimizerBmMax, bi, bounds->optimizerBmSteps);
+                candidate.input.cdav = gridValue(bounds->optimizerCurrentDensityMin, bounds->optimizerCurrentDensityMax, ji, bounds->optimizerCurrentDensitySteps);
+                candidate.input.windowAspectRatio = gridValue(bounds->optimizerAspectRatioMin, bounds->optimizerAspectRatioMax, ai, bounds->optimizerAspectRatioSteps);
                 candidate.input.automaticConductorSizing = true;
                 candidate.runMode = RUN_OPTIMIZE;
                 set->evaluatedDesigns++;
@@ -142,9 +158,9 @@ int runOptimization(const Transformer *baseline, OptimizationSet *set)
                     }
                 }
                 /* Inclusive, evenly spaced samples of the original attempt sequence. */
-                if (set->sampleCount < OPTIMIZATION_SAMPLE_COUNT &&
-                    result.serialNumber == 1 + (int)lround((double)set->sampleCount *
-                        (SEARCH_DESIGNS - 1) / (OPTIMIZATION_SAMPLE_COUNT - 1)))
+                if (set->sampleCount < sampleTarget &&
+                    result.serialNumber == 1 + (sampleTarget == 1 ? 0 : (int)lround((double)set->sampleCount *
+                        (total - 1) / (sampleTarget - 1))))
                     set->samples[set->sampleCount++] = result;
                 if (!result.feasible) continue;
                 set->feasibleDesigns++;
@@ -157,9 +173,10 @@ int runOptimization(const Transformer *baseline, OptimizationSet *set)
                 pool[poolCount++] = result;
             }
         }
+      }
     }
 
-    if (poolCount == 0) return -1;
+    if (poolCount == 0) { free(pool); free(frontier); free(pareto); return -1; }
     int paretoCount = 0;
     for (int i = 0; i < poolCount; i++) {
         int dominated = 0;
@@ -199,5 +216,6 @@ int runOptimization(const Transformer *baseline, OptimizationSet *set)
     set->count = paretoCount < MAX_OPTIMIZATION_RESULTS ? paretoCount : MAX_OPTIMIZATION_RESULTS;
     memcpy(set->candidates, frontier, (size_t)set->count * sizeof(frontier[0]));
     set->recommendedIndex = set->count > 0 ? 0 : -1;
+    free(pool); free(frontier); free(pareto);
     return set->count > 0 ? 0 : -1;
 }

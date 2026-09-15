@@ -9,6 +9,7 @@
 #define MAX_OPTIMIZATION_RESULTS 32
 #define OPTIMIZATION_SAMPLE_COUNT 15
 #define OPTIMIZATION_CRITERIA_COUNT 4
+#define MAX_SEARCH_DESIGNS 5000
 
 typedef enum { CONNECTION_STAR = 0, CONNECTION_DELTA = 1 } ConnectionKind;
 typedef enum { RUN_NOMINAL = 0, RUN_EXPLORE = 1, RUN_OPTIMIZE = 2 } RunMode;
@@ -58,6 +59,8 @@ typedef struct
     double Dct, Hct, dL, dB, dH;
     double plainTankDissipation, tubeCoefficient, tubeEffectiveness, tankPlateThicknessM;
 
+    double optimizerKMin, optimizerKMax;
+    int optimizerKSteps, optimizerBmSteps, optimizerCurrentDensitySteps, optimizerAspectRatioSteps;
     double optimizerBmMin, optimizerBmMax;
     double optimizerCurrentDensityMin, optimizerCurrentDensityMax;
     double optimizerAspectRatioMin, optimizerAspectRatioMax;
@@ -142,7 +145,9 @@ typedef struct
     int serialNumber;
     bool calculated, feasible;
     char constraintFailures[256];
-    double Bm, currentDensityTarget, windowAspectRatio;
+    double K, Bm, currentDensityTarget, windowAspectRatio;
+    double d, L, D, W, actualWindowRatio, lvCurrentDensity, hvCurrentDensity, regulationPercent;
+    int coolingTubes;
     double totalLossW, activeMassKg, materialCostIndex;
     double efficiencyPercent, impedancePercent, temperatureRiseC;
     int benchmarkPassCount;
@@ -177,5 +182,6 @@ void printTransformerResults(const Transformer *tx);
 int writeTextReport(const Transformer *tx, const OptimizationSet *optimization, const char *filename);
 int writeJsonReport(const Transformer *tx, const OptimizationSet *optimization, const char *filename);
 int writeJsonStream(const Transformer *tx, const OptimizationSet *optimization, FILE *stream);
+void writeNumericConfiguration(const Transformer *tx, FILE *out);
 
 #endif

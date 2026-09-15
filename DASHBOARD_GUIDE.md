@@ -42,7 +42,9 @@ Allows any exposed input to be changed and any combination of result sections to
 
 ### Optimal
 
-Searches the configured design space, rejects infeasible candidates and returns a ranked Pareto candidate set. The recommendation is displayed before the reference summary, with its change in loss and active mass. Choose **Explore this candidate** to copy its Bm, current-density and window-ratio values into Explore for a full calculation and presentation.
+Searches K, Bm, average current density and the window ratio L/(D−d), as specified for a core-type transformer in §5.2.9. Set minimum/maximum values and expand **Search resolution** to choose the count on each axis. The default is 1,764 combinations; the limit is 5,000. One value fixes an axis at its minimum. Keep your rating and connection in Nameplate/Connection.
+
+After the search, choose **Run this design** beneath the objective you need: maximum efficiency, minimum kg/kVA, minimum I₀/I₂ or minimum tank volume. This immediately recalculates all six sections in Explore using the exact configuration that produced that variant, even if you have subsequently edited the form. **Run balanced design** does the same for the Pareto recommendation. The recalculation status records the chosen serial. **Inspect this diagnostic** is available when no feasible winner exists; it does not certify feasibility.
 
 ## Tutorial and presentation mode
 
@@ -63,7 +65,7 @@ The complete order is Lenana → Natasha → Aitsa → Stephanie → Hadassah �
 
 Run Optimal again after updating both the backend and frontend. At the bottom of the optimal-results panel, **Present comparison** opens eight slides: three pages of five sampled variants, one slide for each of the four textbook criteria, then the balanced Pareto choice. Arrow keys move between slides and sections; Exit or Finish returns to the results.
 
-The 15 rows are evenly spaced attempts from the original 294-item search, including rejected attempts. Serial numbers are IDs, not ranks. A row marked **No** failed the configured feasibility gate; its failure reasons appear in the dashboard table. The four textbook winners normally come from feasible rows, as required by §5.3.9. If the feasible set is empty, the best calculated row is shown as a diagnostic fallback and labelled **CALCULATED · NOT FEASIBLE**. A winner may not appear in the sample, and the same variant may win multiple criteria. Exact ties choose the earliest serial; rounded display values may appear tied even when the underlying values differ.
+The 15 rows are evenly spaced attempts from the configured search, including rejected attempts. Serial numbers are IDs, not ranks. A row marked **No** failed the configured feasibility gate; its failure reasons appear in the table. Winners come from all feasible rows, following core-type §5.2.9–5.2.10. If that set is empty, the best calculated row is labelled **CALCULATED · NOT FEASIBLE**. A winner may be outside the 15-row sample, and one variant may win multiple criteria. Exact ties choose the earliest serial. Expand **Dimensions and winding results** for d, L, D, W, actual L/(D−d), cdLV, cdHV, regulation and cooling tubes.
 
 The comparison efficiency is at full load and **0.85 PF**, matching the textbook optimal-output table. The existing headline efficiency uses unity PF. kg/kVA is the current model's active-mass measure, not shipping mass; see README's existing three-phase copper-accounting limitation. Tank volume excludes external tubes and fittings. All values come from the C results.
 

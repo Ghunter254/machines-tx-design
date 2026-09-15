@@ -1,6 +1,8 @@
 #include "../include/main.h"
 
 #include <ctype.h>
+#include <math.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,6 +84,12 @@ static const InputField fields[] = {
     INPUT_FIELD("TUBE_COEFFICIENT", tubeCoefficient, INPUT_DOUBLE),
     INPUT_FIELD("TUBE_EFFECTIVENESS", tubeEffectiveness, INPUT_DOUBLE),
     INPUT_FIELD("TANK_PLATE_THICKNESS", tankPlateThicknessM, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_K_MIN", optimizerKMin, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_K_MAX", optimizerKMax, INPUT_DOUBLE),
+    INPUT_FIELD("OPTIMIZER_K_STEPS", optimizerKSteps, INPUT_INT),
+    INPUT_FIELD("OPTIMIZER_BM_STEPS", optimizerBmSteps, INPUT_INT),
+    INPUT_FIELD("OPTIMIZER_CURRENT_DENSITY_STEPS", optimizerCurrentDensitySteps, INPUT_INT),
+    INPUT_FIELD("OPTIMIZER_ASPECT_RATIO_STEPS", optimizerAspectRatioSteps, INPUT_INT),
     INPUT_FIELD("OPTIMIZER_BM_MIN", optimizerBmMin, INPUT_DOUBLE),
     INPUT_FIELD("OPTIMIZER_BM_MAX", optimizerBmMax, INPUT_DOUBLE),
     INPUT_FIELD("OPTIMIZER_CURRENT_DENSITY_MIN", optimizerCurrentDensityMin, INPUT_DOUBLE),
@@ -154,6 +162,9 @@ void setDefaultConfiguration(Transformer *tx)
     in->Dct = 0.05; in->Hct = 1.25; in->dL = 0.14; in->dB = 0.18; in->dH = 0.5;
     in->plainTankDissipation = 12.5; in->tubeCoefficient = 6.5; in->tubeEffectiveness = 1.35;
     in->tankPlateThicknessM = 0.008;
+    in->optimizerKMin = 0.6; in->optimizerKMax = 0.65;
+    in->optimizerKSteps = 6; in->optimizerBmSteps = 7;
+    in->optimizerCurrentDensitySteps = 7; in->optimizerAspectRatioSteps = 6;
     in->optimizerBmMin = 1.4; in->optimizerBmMax = 1.7;
     in->optimizerCurrentDensityMin = 2.3; in->optimizerCurrentDensityMax = 3.2;
     in->optimizerAspectRatioMin = 2.5; in->optimizerAspectRatioMax = 4.0;
@@ -187,13 +198,26 @@ int applyConfigurationValue(Transformer *tx, const char *key, const char *rawVal
         char *base = (char *)tx;
         char *end = NULL;
         double number = strtod(value, &end);
-        if (end == value) return -1;
+        if (end == value || *trim(end) != '\0' || !isfinite(number)) return -1;
+        if (fields[i].type == INPUT_INT && (number < INT_MIN || number > INT_MAX || floor(number) != number)) return -1;
         if (fields[i].type == INPUT_DOUBLE) *(double *)(base + fields[i].offset) = number;
         else if (fields[i].type == INPUT_INT) *(int *)(base + fields[i].offset) = (int)number;
         else *(bool *)(base + fields[i].offset) = number != 0.0;
         return 0;
     }
     return 1;
+}
+
+/* All numeric inputs, at round-trip precision, for exact candidate replay. */
+void writeNumericConfiguration(const Transformer *tx, FILE *out)
+{
+    const char *base = (const char *)tx;
+    for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
+        const char *value = base + fields[i].offset;
+        double number = fields[i].type == INPUT_DOUBLE ? *(const double *)value :
+            fields[i].type == INPUT_INT ? *(const int *)value : *(const bool *)value;
+        fprintf(out, "\"%s\":%.17g,", fields[i].key, number);
+    }
 }
 
 int loadConfiguration(Transformer *tx, const char *filename)

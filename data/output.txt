@@ -112,18 +112,18 @@ Plain tank rise / cooled rise                     124.20 C / 49.90 C
 Tube diameter / height                            0.050 / 1.250 m
 Area per tube / required area                     0.196 / 12.135 m2
 Cooling tube count                                                 62
-Active / shipping mass                            1083.02 / 2433.56 kg
-Oil volume / oil mass                             1.035 m3 / 890.50 kg
-Specific active mass                                  1.719 kg/kVA
+Active / shipping mass                            1434.45 / 2751.59 kg
+Oil volume / oil mass                             0.997 m3 / 857.10 kg
+Specific active mass                                  2.277 kg/kVA
 
 BILL OF MATERIALS
 -----------------
-HV copper                                                 102.62 kg
-LV copper                                                  71.35 kg
+HV copper (all phases)                                    307.87 kg
+LV copper (all phases)                                    214.06 kg
 Active core steel                                         898.32 kg
 Fabricated tank steel                                     460.04 kg
-Insulating oil                                            890.50 kg
-Material cost index                                     4990.33
+Insulating oil                                            857.10 kg
+Material cost index                                     7740.55
 
 ENGINEERING ASSESSMENT
 ----------------------
@@ -180,7 +180,7 @@ PASS    Calculated oil temperature rise       49.904 C        <= 50.000
         Meaning: Estimated steady rise after the calculated cooling tubes are included.
         Verdict: Cooling area holds the estimate within the target.
         Basis:   Configured thermal target / IEC 60076-2 context
-PASS    Usable oil volume                      1.035 m3       >= 0.000
+PASS    Usable oil volume                      0.997 m3       >= 0.000
         Meaning: Tank volume remaining after active-material displacement.
         Verdict: Positive oil volume is available.
         Basis:   Calculated geometry

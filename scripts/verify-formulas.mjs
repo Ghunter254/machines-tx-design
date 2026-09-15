@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const data = JSON.parse(fs.readFileSync(path.join(root, 'data', 'output.json'), 'utf8'));
+const data = JSON.parse(fs.readFileSync(process.argv[2] || path.join(root, 'data', 'output.json'), 'utf8'));
 const { input: i, assumptions: a, sections: s } = data;
 const f = s.frame;
 const n = s.noLoad;
@@ -154,10 +154,12 @@ close('tank.coolingTubes', t.coolingTubes, expectedTubeArea > 0 ? Math.ceil(expe
 const totalDissipation = a.plainTankDissipationWm2C * t.surfaceAreaM2 + a.tubeCoefficientWm2C * a.tubeEffectiveness * t.coolingTubes * t.tubeAreaM2;
 close('tank.cooledRiseC', t.cooledRiseC, p.totalLossKw * 1000 / totalDissipation);
 close('tank.activeMassKg', t.activeMassKg, 1.01 * (t.hvCopperMassKg + t.lvCopperMassKg + t.ironMassKg));
+close('tank.hvCopperMassKg', t.hvCopperMassKg, i.phases * hv.copperMassKg);
+close('tank.lvCopperMassKg', t.lvCopperMassKg, i.phases * lv.copperMassKg);
 close('tank.specificMassKgKva', t.specificMassKgKva, t.activeMassKg / i.kva);
 const tankPlateArea = t.surfaceAreaM2 + 2 * t.lengthM * t.widthM;
 close('tank.steelMassKg', t.steelMassKg, a.steelDensityKgM3 * tankPlateArea * a.tankPlateThicknessM);
-close('tank.oilVolumeM3', t.oilVolumeM3, Math.max(0, t.volumeM3 - f.totalIronVolumeM3 - lv.copperVolumeM3 - hv.copperVolumeM3));
+close('tank.oilVolumeM3', t.oilVolumeM3, Math.max(0, t.volumeM3 - f.totalIronVolumeM3 - i.phases * (lv.copperVolumeM3 + hv.copperVolumeM3)));
 close('tank.oilMassKg', t.oilMassKg, a.oilDensityKgM3 * t.oilVolumeM3);
 close('tank.shippingMassKg', t.shippingMassKg, t.activeMassKg + t.steelMassKg + t.oilMassKg);
 close('tank.materialCostIndex', t.materialCostIndex, (t.hvCopperMassKg + t.lvCopperMassKg) * a.copperCostIndex + t.ironMassKg * a.coreSteelCostIndex + t.steelMassKg * a.tankSteelCostIndex + t.oilMassKg * a.oilCostIndex);

@@ -35,8 +35,9 @@ void designTank(Transformer *tx)
         in->tubeCoefficient * in->tubeEffectiveness * tank->Nt * tank->At;
     tank->TrWithTubes = tx->performance.ptFL * 1000.0 / totalDissipation;
 
-    tank->Wcu1 = tx->hv.Wcu;
-    tank->Wcu2 = tx->lv.Wcu;
+    /* Winding design stores one phase. Tank accounting includes every phase. */
+    tank->Wcu1 = in->Ph * tx->hv.Wcu;
+    tank->Wcu2 = in->Ph * tx->lv.Wcu;
     tank->Wiron = tx->magneticFrame.KgC + tx->magneticFrame.KgY;
     tank->Wtot = 1.01 * (tank->Wcu1 + tank->Wcu2 + tank->Wiron);
     tank->KgPkva = tank->Wtot / in->KVA;
@@ -44,7 +45,7 @@ void designTank(Transformer *tx)
     const double tankPlateArea = tank->St + 2.0 * tank->Lt * tank->bt;
     derived->Wsteel = in->density_fe * tankPlateArea * in->tankPlateThicknessM;
     const double ironVolume = tank->Wiron / in->density_fe;
-    derived->Voil = tank->Vt - ironVolume - tx->lv.Vcu - tx->hv.Vcu;
+    derived->Voil = tank->Vt - ironVolume - in->Ph * (tx->lv.Vcu + tx->hv.Vcu);
     if (derived->Voil < 0.0) derived->Voil = 0.0;
     derived->Woil = in->density_oil * derived->Voil;
     derived->Wship = tank->Wtot + derived->Wsteel + derived->Woil;
